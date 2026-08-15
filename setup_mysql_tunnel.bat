@@ -26,16 +26,12 @@ if "%choice%"=="3" goto END
 echo.
 echo [!] Starting Cloudflare Tunnel for MySQL Port 3306...
 echo.
-where cloudflared >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] cloudflared is not installed or not in PATH!
-    echo Download cloudflared from: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-    echo Or install via winget: winget install Cloudflare.cloudflared
-    pause
-    goto END
-)
 
-cloudflared tunnel --url tcp://localhost:3306
+set "CF_EXE=cloudflared"
+if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" set "CF_EXE=C:\Program Files (x86)\cloudflared\cloudflared.exe"
+if exist "C:\Program Files\cloudflared\cloudflared.exe" set "CF_EXE=C:\Program Files\cloudflared\cloudflared.exe"
+
+"%CF_EXE%" tunnel --url tcp://localhost:3306
 goto END
 
 :NGROK
