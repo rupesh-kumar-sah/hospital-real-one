@@ -5,9 +5,22 @@
  */
 
 // =====================================================
-// 1. HTTP SECURITY HEADERS
+// 1. HTTP SECURITY & CORS HEADERS
 // =====================================================
 if (!headers_sent()) {
+    // Cross-Origin Resource Sharing (CORS) for Vercel Frontend -> Render Backend
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+    header("Access-Control-Allow-Origin: $origin");
+    header("Access-Control-Allow-Credentials: true");
+    header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-Token");
+    
+    // Handle preflight OPTIONS requests immediately
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
+    
     // Prevent Clickjacking attacks
     header('X-Frame-Options: SAMEORIGIN');
     
@@ -22,9 +35,6 @@ if (!headers_sent()) {
     
     // Restrict unused browser features
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
-    
-    // Content Security Policy (CSP)
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:;");
 }
 
 // =====================================================

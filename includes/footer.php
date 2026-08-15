@@ -2,6 +2,7 @@
     </div><!-- /.main-content -->
 </div><!-- /.app-layout -->
 
+<script src="/assets/js/config.js"></script>
 <script src="/assets/js/main.js"></script>
 <?php if (isset($extraScripts)): ?>
 <?php foreach ($extraScripts as $script): ?>
