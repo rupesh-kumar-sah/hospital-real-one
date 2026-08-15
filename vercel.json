@@ -1,35 +1,7 @@
 {
   "version": 2,
-  "name": "medicare-hms-frontend",
   "functions": {
     "api/**/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "index.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "auth/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "admin/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "doctor/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "patient/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "nurse/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "lab/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "pharmacy/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "receptionist/*.php": {
       "runtime": "vercel-php@0.7.1"
     }
   },
