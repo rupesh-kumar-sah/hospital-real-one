@@ -52,8 +52,8 @@ function getDB(): PDO {
     if ($pdo === null) {
         $driver = strtolower(DB_DRIVER);
         
-        try {
-            if ($driver === 'mysql') {
+        if ($driver === 'mysql') {
+            try {
                 $dsn = sprintf(
                     'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
                     DB_HOST,
@@ -65,36 +65,48 @@ function getDB(): PDO {
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+                    PDO::ATTR_TIMEOUT => 5
                 ];
                 
-                // Enable SSL if configured in environment
                 if (getenv('DB_SSL') === 'true') {
                     $options[PDO::MYSQL_ATTR_SSL_CA] = getenv('DB_SSL_CA') ?: true;
                     $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
                 }
                 
                 $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-            } else {
-                // Default SQLite mode
-                $dbDir = dirname(DB_PATH);
-                if (!is_dir($dbDir)) {
-                    @mkdir($dbDir, 0755, true);
-                }
-                
-                $isNew = !file_exists(DB_PATH);
-                $pdo = new PDO('sqlite:' . DB_PATH);
-                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-                $pdo->exec('PRAGMA foreign_keys = ON');
-                $pdo->exec('PRAGMA journal_mode = WAL');
-                
-                if ($isNew) {
-                    initializeDatabase($pdo);
-                }
+                return $pdo;
+            } catch (PDOException $e) {
+                error_log('MySQL Connection failed: ' . $e->getMessage() . '. Falling back to SQLite.');
+                // Proceed to SQLite fallback below
+            }
+        }
+        
+        // SQLite Driver / Fallback Mode
+        try {
+            $dbDir = dirname(DB_PATH);
+            if (!is_dir($dbDir)) {
+                @mkdir($dbDir, 0755, true);
+            }
+            
+            $isNew = !file_exists(DB_PATH);
+            $pdo = new PDO('sqlite:' . DB_PATH);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+            $pdo->exec('PRAGMA foreign_keys = ON');
+            $pdo->exec('PRAGMA journal_mode = WAL');
+            
+            if ($isNew) {
+                initializeDatabase($pdo);
             }
         } catch (PDOException $e) {
+            if (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/')) {
+                header('Content-Type: application/json');
+                http_response_code(500);
+                echo json_encode(['error' => 'Database Connection Failed: ' . $e->getMessage()]);
+                exit;
+            }
             die('Database Connection Error: ' . $e->getMessage());
         }
     }
