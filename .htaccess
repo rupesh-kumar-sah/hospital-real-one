@@ -1,0 +1,25 @@
+# MediCare HMS Security Configuration
+# Protect sensitive directories and database files
+
+# Prevent directory browsing
+Options -Indexes
+
+# Protect Database & Config Files
+<FilesMatch "\.(db|sqlite|sql|env|log|md|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden files (.git, .env, etc.)
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Enable Security Headers
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
