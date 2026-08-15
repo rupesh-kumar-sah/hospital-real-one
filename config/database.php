@@ -37,7 +37,7 @@ define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'medicare_hms');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_PATH', getenv('DB_PATH') ?: 'E:\\HM DATA\\hms.db');
+define('DB_PATH', getenv('DB_PATH') ?: __DIR__ . '/../data/hms.db');
 
 define('SCHEMA_PATH', __DIR__ . '/../sql/schema.sql');
 define('SEED_PATH', __DIR__ . '/../sql/seed_data.sql');

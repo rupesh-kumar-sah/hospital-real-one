@@ -6,20 +6,15 @@ services:
     region: singapore
     dockerfilePath: Dockerfile
     autoDeploy: true
+    healthCheckPath: /api/health.php
     envVars:
       - key: APP_ENV
         value: production
       - key: DB_DRIVER
-        value: mysql
-      - key: DB_HOST
-        sync: false # Set to your Cloudflare Tunnel / Ngrok public domain or IP
-      - key: DB_PORT
-        value: "3306"
-      - key: DB_NAME
-        value: medicare_hms
-      - key: DB_USER
-        sync: false
-      - key: DB_PASS
-        sync: false
+        value: sqlite
+      - key: DB_PATH
+        value: /var/www/html/data/hms.db
       - key: APP_ENCRYPTION_KEY
         generateValue: true
+      - key: PORT
+        value: "10000"

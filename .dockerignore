@@ -1,0 +1,7 @@
+.git
+.vercel
+.env
+scratch/
+*.bat
+*.md
+.gitignore

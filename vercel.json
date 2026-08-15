@@ -1,18 +1,9 @@
 {
   "version": 2,
-  "cleanUrls": true,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/uploads/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/(.*)",
+      "destination": "https://medicare-hms-backend.onrender.com/$1"
     }
   ]
 }

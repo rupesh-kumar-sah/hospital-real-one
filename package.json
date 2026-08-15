@@ -1,9 +1,0 @@
-{
-  "name": "medicare-hms-frontend",
-  "version": "1.0.0",
-  "private": true,
-  "description": "MediCare Hospital Management System Frontend for Vercel CDN Deployment",
-  "scripts": {
-    "build": "echo 'Vercel Static Frontend Ready'"
-  }
-}
