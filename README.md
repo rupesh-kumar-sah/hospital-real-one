@@ -1,4 +1,5 @@
 # 🏥 MediCare Hospital Management System (HMS)
+> **Production Vercel & Render Deployment Verified** | Author: `rsah0123456@gmail.com` | Sync: Enabled
 
 A complete, enterprise-grade, self-hosted **Hospital Management System (HMS)** built with **PHP 8.4** and **SQLite3 PDO**.
 
