@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "medicare-hms-frontend",
   "cleanUrls": true,
   "routes": [
     {
