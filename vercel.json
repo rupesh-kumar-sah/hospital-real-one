@@ -39,8 +39,12 @@
       "dest": "https://medicare-hms-public-gateway.onrender.com/patient/$1"
     },
     {
+      "src": "/index.php",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/index.php"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/index.php"
+      "dest": "https://medicare-hms-public-gateway.onrender.com/$1"
     }
   ]
 }
