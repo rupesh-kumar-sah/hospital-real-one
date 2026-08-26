@@ -49,6 +49,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Handle Accept & Confirm Date
+if (isset($_GET['accept'])) {
+    $acceptId = (int)$_GET['accept'];
+    
+    $appt = $db->query("
+        SELECT a.*, p.user_id as patient_user_id, u_p.full_name as patient_name, u_d.full_name as doctor_name, d.user_id as doctor_user_id
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u_p ON p.user_id = u_p.id
+        JOIN doctors d ON a.doctor_id = d.id
+        JOIN users u_d ON d.user_id = u_d.id
+        WHERE a.id = {$acceptId}
+    ")->fetch();
+
+    if ($appt) {
+        $stmt = $db->prepare("UPDATE appointments SET status = 'scheduled' WHERE id = ?");
+        $stmt->execute([$acceptId]);
+
+        // Notify Patient
+        if ($appt['patient_user_id']) {
+            createNotification($appt['patient_user_id'], 'Appointment Accepted & Confirmed!', "Your appointment for {$appt['appointment_date']} at {$appt['appointment_time']} with Dr. {$appt['doctor_name']} has been ACCEPTED & CONFIRMED by Reception. Token #{$appt['token_number']}", 'appointment');
+        }
+
+        // Notify Doctor
+        if ($appt['doctor_user_id']) {
+            createNotification($appt['doctor_user_id'], 'New Confirmed Patient Appointment', "Patient {$appt['patient_name']} confirmed for {$appt['appointment_date']} at {$appt['appointment_time']}. Token #{$appt['token_number']}", 'appointment');
+        }
+
+        logAudit('update', 'appointments', $acceptId, "Accepted & confirmed appointment #{$acceptId} date");
+        setFlash('success', "Appointment date accepted & confirmed! Token #{$appt['token_number']}");
+        header('Location: /receptionist/appointments.php');
+        exit;
+    }
+}
+
 // Handle Cancel
 if (isset($_GET['cancel'])) {
     $cancelId = (int)$_GET['cancel'];
@@ -68,7 +103,7 @@ $appointments = $db->query("
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    ORDER BY a.appointment_date DESC, a.appointment_time ASC
+    ORDER BY CASE WHEN a.status = 'pending_approval' THEN 1 WHEN a.status = 'scheduled' THEN 2 ELSE 3 END, a.appointment_date DESC, a.appointment_time ASC
 ")->fetchAll();
 
 $patients = $db->query("SELECT p.id, p.uhid, u.full_name FROM patients p JOIN users u ON p.user_id = u.id ORDER BY u.full_name")->fetchAll();
@@ -80,7 +115,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="page-header">
     <div>
         <h1>Appointments & Queue Management</h1>
-        <p class="page-subtitle">Schedule, reschedule, or cancel patient consultations</p>
+        <p class="page-subtitle">Accept online patient applications, confirm dates, check in patients, and issue billing receipts</p>
     </div>
     <button class="btn btn-primary" onclick="openModal('bookApptModal')">
         <i class="fas fa-calendar-plus"></i> Book Appointment
@@ -99,23 +134,34 @@ include __DIR__ . '/../includes/header.php';
                     <th>Date & Time</th>
                     <th>Reason</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th>Actions & Workflow</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($appointments as $a): ?>
-                <tr>
+                <tr style="<?= $a['status'] === 'pending_approval' ? 'background: rgba(139, 92, 246, 0.05);' : '' ?>">
                     <td><span class="badge badge-primary">#<?= $a['token_number'] ?></span></td>
                     <td><strong><?= sanitize($a['patient_name']) ?></strong><br><code class="text-xs"><?= sanitize($a['uhid']) ?></code></td>
-                    <td><?= sanitize($a['doctor_name']) ?></td>
+                    <td>Dr. <?= sanitize($a['doctor_name']) ?></td>
                     <td><?= sanitize($a['dept_name'] ?? '-') ?></td>
                     <td><?= formatDate($a['appointment_date']) ?> <?= formatTime($a['appointment_time']) ?></td>
                     <td><?= sanitize($a['reason'] ?: '-') ?></td>
                     <td><?= statusBadge($a['status'], APPOINTMENT_STATUSES) ?></td>
                     <td>
-                        <?php if ($a['status'] === 'scheduled'): ?>
-                        <a href="/receptionist/check_in.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Check-In</a>
-                        <a href="/receptionist/appointments.php?cancel=<?= $a['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Cancel appointment?')"><i class="fas fa-times"></i></a>
+                        <?php if ($a['status'] === 'pending_approval'): ?>
+                        <div class="d-flex gap-4">
+                            <a href="/receptionist/appointments.php?accept=<?= $a['id'] ?>" class="btn btn-sm btn-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-check-circle"></i> Accept & Confirm Date
+                            </a>
+                            <a href="/receptionist/appointments.php?cancel=<?= $a['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Reject appointment application?')"><i class="fas fa-times"></i> Reject</a>
+                        </div>
+                        <?php elseif ($a['status'] === 'scheduled'): ?>
+                        <div class="d-flex gap-4">
+                            <a href="/receptionist/check_in.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-clipboard-check"></i> Check In & Bill</a>
+                            <a href="/receptionist/appointments.php?cancel=<?= $a['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Cancel appointment?')"><i class="fas fa-times"></i></a>
+                        </div>
+                        <?php elseif ($a['status'] === 'checked_in'): ?>
+                        <span class="badge badge-warning"><i class="fas fa-paper-plane"></i> Sent to Doctor Queue</span>
                         <?php endif; ?>
                     </td>
                 </tr>

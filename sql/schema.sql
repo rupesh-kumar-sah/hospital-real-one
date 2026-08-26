@@ -509,6 +509,17 @@ CREATE TABLE IF NOT EXISTS payment_methods (
     status VARCHAR(20) DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+-- =====================================================
+-- 27. PASSWORD RESETS — Reset tokens for account recovery
+-- =====================================================
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- =====================================================
 -- INDEXES for performance

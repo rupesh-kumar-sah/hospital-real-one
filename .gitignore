@@ -1,1 +1,5 @@
 .vercel
+.env
+data/hms.db
+scratch/
+*.log

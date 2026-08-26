@@ -1,23 +1,23 @@
 <?php
 /**
- * Hospital Management System — Patient Lab Reports View
+ * Hospital Management System — Patient: Lab Reports
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('patient');
 
-$pageTitle = 'My Lab Reports';
+$pageTitle = 'Lab Test Reports';
 $breadcrumbs = [['label' => 'Dashboard', 'url' => '/patient/dashboard.php'], ['label' => 'Lab Reports']];
 
 $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
-$labs = $db->query("
-    SELECT lo.*, lc.test_name, lc.category, lr.result_value, lr.reference_range, lr.interpretation, lr.uploaded_at
+$labReports = $db->query("
+    SELECT lo.*, u_d.full_name as doctor_name
     FROM lab_orders lo
-    JOIN lab_test_catalog lc ON lo.test_id = lc.id
-    LEFT JOIN lab_results lr ON lo.id = lr.lab_order_id
+    LEFT JOIN doctors d ON lo.doctor_id = d.id
+    LEFT JOIN users u_d ON d.user_id = u_d.id
     WHERE lo.patient_id = {$patientId}
     ORDER BY lo.ordered_at DESC
 ")->fetchAll();
@@ -27,8 +27,8 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="page-header">
     <div>
-        <h1>My Diagnostic Lab Reports</h1>
-        <p class="page-subtitle">View and download your laboratory test results and blood test reports</p>
+        <h1>Diagnostic & Lab Reports</h1>
+        <p class="page-subtitle">Track laboratory orders and test results</p>
     </div>
 </div>
 
@@ -37,31 +37,25 @@ include __DIR__ . '/../includes/header.php';
         <table>
             <thead>
                 <tr>
-                    <th>Test Name</th>
-                    <th>Category</th>
-                    <th>Result</th>
-                    <th>Normal Reference</th>
-                    <th>Interpretation</th>
+                    <th>Order #</th>
+                    <th>Doctor</th>
+                    <th>Date</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($labs as $l): ?>
+                <?php if (empty($labReports)): ?>
+                <tr><td colspan="4"><div class="empty-state"><p>No lab test reports recorded yet</p></div></td></tr>
+                <?php else: ?>
+                <?php foreach ($labReports as $lab): ?>
                 <tr>
-                    <td><strong><?= sanitize($l['test_name']) ?></strong></td>
-                    <td><?= sanitize($l['category']) ?></td>
-                    <td><strong class="text-primary"><?= sanitize($l['result_value'] ?: 'Processing...') ?></strong></td>
-                    <td><span class="text-xs text-muted"><?= sanitize($l['reference_range'] ?: '-') ?></span></td>
-                    <td>
-                        <?php if ($l['interpretation']): ?>
-                        <span class="badge <?= $l['interpretation'] === 'normal' ? 'badge-success' : 'badge-danger' ?>"><?= ucfirst($l['interpretation']) ?></span>
-                        <?php else: ?>
-                        -
-                        <?php endif; ?>
-                    </td>
-                    <td><span class="badge <?= $l['status'] === 'completed' ? 'badge-success' : 'badge-warning' ?>"><?= ucfirst($l['status']) ?></span></td>
+                    <td><strong>#LAB-<?= $lab['id'] ?></strong></td>
+                    <td>Dr. <?= sanitize($lab['doctor_name'] ?? 'Hospital Lab') ?></td>
+                    <td><?= formatDate($lab['ordered_at'] ?? '') ?></td>
+                    <td><span class="badge badge-warning"><?= ucfirst($lab['status']) ?></span></td>
                 </tr>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>

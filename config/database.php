@@ -37,7 +37,8 @@ define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'medicare_hms');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_PATH', getenv('DB_PATH') ?: __DIR__ . '/../data/hms.db');
+$defaultDbFallback = file_exists('E:/HM DATA/hms.db') ? 'E:/HM DATA/hms.db' : __DIR__ . '/../data/hms.db';
+define('DB_PATH', getenv('DB_PATH') ?: $defaultDbFallback);
 
 define('SCHEMA_PATH', __DIR__ . '/../sql/schema.sql');
 define('SEED_PATH', __DIR__ . '/../sql/seed_data.sql');
@@ -96,6 +97,10 @@ function getDB(): PDO {
             $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
             $pdo->exec('PRAGMA foreign_keys = ON');
             $pdo->exec('PRAGMA journal_mode = WAL');
+            $pdo->exec('PRAGMA busy_timeout = 5000');
+            $pdo->exec('PRAGMA synchronous = NORMAL');
+            $pdo->exec('PRAGMA cache_size = -64000');
+            $pdo->exec('PRAGMA temp_store = MEMORY');
             
             if ($isNew) {
                 initializeDatabase($pdo);

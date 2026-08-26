@@ -14,12 +14,13 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 $todayDate = date('Y-m-d');
+$whereDoc = $doctorId > 0 ? "a.doctor_id = {$doctorId} AND" : "";
 $queue = $db->query("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, p.date_of_birth, p.gender, p.blood_group, p.allergies
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN users u_p ON p.user_id = u_p.id
-    WHERE a.doctor_id = {$doctorId} AND (a.appointment_date = '{$todayDate}' OR a.appointment_date = DATE('now'))
+    WHERE {$whereDoc} (a.appointment_date = '{$todayDate}' OR a.appointment_date = DATE('now', 'localtime'))
     ORDER BY a.token_number ASC
 ")->fetchAll();
 

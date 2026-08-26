@@ -101,8 +101,13 @@ include __DIR__ . '/../includes/header.php';
                     <td><?= ucfirst(sanitize($b['payment_method'] ?: 'Cash')) ?></td>
                     <td><?= statusBadge($b['payment_status'], PAYMENT_STATUSES) ?></td>
                     <td><?= formatDate($b['created_at']) ?></td>
-                    <td>
-                        <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
+                    <td class="d-flex gap-4">
+                        <a href="/receptionist/view_invoice.php?bill_id=<?= $b['id'] ?>" class="btn btn-sm btn-primary" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fas fa-receipt"></i> View Bill
+                        </a>
+                        <a href="/receptionist/print_invoice.php?bill_id=<?= $b['id'] ?>&autoprint=1" target="_blank" class="btn btn-sm btn-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fas fa-print"></i> Print Bill
+                        </a>
                     </td>
                 </tr>
                 <?php endforeach; ?>

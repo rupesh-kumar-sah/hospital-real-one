@@ -43,6 +43,21 @@ $revenueMonth = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM bi
 // Pending bills
 $pendingBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_status = 'unpaid'")->fetch()['c'];
 
+// Revenue breakdown by payment method
+$paymentMethodStats = $db->query("
+    SELECT payment_method, COALESCE(SUM(net_amount), 0) as total, COUNT(*) as count 
+    FROM billing 
+    WHERE payment_status = 'paid' 
+    GROUP BY payment_method
+")->fetchAll();
+
+// Revenue breakdown by item category
+$itemCategoryStats = $db->query("
+    SELECT item_type, COALESCE(SUM(total_price), 0) as total, COUNT(*) as count
+    FROM billing_items
+    GROUP BY item_type
+")->fetchAll();
+
 // Recent appointments
 $recentAppts = $db->query("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, u_d.full_name as doctor_name, dep.name as dept_name
@@ -78,8 +93,16 @@ $lowStockCount = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE 
 // Pending lab tests
 $pendingLabTests = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('ordered','sample_collected','processing')")->fetch()['c'];
 
-// Pending prescriptions
-$pendingRx = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'pending'")->fetch()['c'];
+// Dispensed Medicine Bills for Admin Overview
+$dispensedBills = $db->query("
+    SELECT pr.*, p.id as patient_db_id, p.uhid, u_p.full_name as patient_name, u_d.full_name as doctor_name
+    FROM prescriptions pr
+    JOIN patients p ON pr.patient_id = p.id
+    JOIN users u_p ON p.user_id = u_p.id
+    JOIN doctors d ON pr.doctor_id = d.id
+    JOIN users u_d ON d.user_id = u_d.id
+    ORDER BY pr.created_at DESC
+")->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -236,6 +259,71 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Financial Revenue Breakdown (Cash vs eSewa vs Khalti & Categories) -->
+<div class="grid-2" style="margin-bottom: 24px;">
+    <!-- Revenue by Payment Channel -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-wallet" style="color: #10b981;"></i> Money Collected by Payment Channel</h3>
+        </div>
+        <div class="card-body">
+            <?php if (empty($paymentMethodStats)): ?>
+            <div class="empty-state"><p>No payment records found.</p></div>
+            <?php else: ?>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <?php foreach ($paymentMethodStats as $pm): ?>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--gray-200);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 6px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                            <i class="fas <?= strtolower($pm['payment_method']) === 'esewa' ? 'fa-qrcode' : (strtolower($pm['payment_method']) === 'khalti' ? 'fa-mobile-screen' : 'fa-money-bill-wave') ?>"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--gray-800);"><?= ucfirst(sanitize($pm['payment_method'] ?: 'Cash')) ?></div>
+                            <div class="text-xs text-muted"><?= $pm['count'] ?> paid transactions</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #10b981;">
+                        <?= formatCurrency($pm['total']) ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Revenue by Billing Category -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-layer-group" style="color: #8b5cf6;"></i> Revenue by Billing Category</h3>
+        </div>
+        <div class="card-body">
+            <?php if (empty($itemCategoryStats)): ?>
+            <div class="empty-state"><p>No category breakdown found.</p></div>
+            <?php else: ?>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <?php foreach ($itemCategoryStats as $cat): ?>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--gray-200);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 6px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                            <i class="fas <?= strtolower($cat['item_type']) === 'medicine' ? 'fa-pills' : (strtolower($cat['item_type']) === 'consultation' ? 'fa-stethoscope' : 'fa-receipt') ?>"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--gray-800);"><?= ucfirst(sanitize($cat['item_type'])) ?> Fees</div>
+                            <div class="text-xs text-muted"><?= $cat['count'] ?> line items</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #8b5cf6;">
+                        <?= formatCurrency($cat['total']) ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Appointments Table -->
 <div class="card" style="margin-bottom: 24px;">
     <div class="card-header">
@@ -283,6 +371,83 @@ include __DIR__ . '/../includes/header.php';
                         <div class="text-sm text-muted"><?= formatTime($appt['appointment_time']) ?></div>
                     </td>
                     <td><?= statusBadge($appt['status'], APPOINTMENT_STATUSES) ?></td>
+                </tr>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Dispensed Medicine Bills & Patient Financial Overview -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h3><i class="fas fa-pills" style="color: var(--warning);"></i> Dispensed Medicine Bills & Patient Financial Overview</h3>
+        <a href="/pharmacy/dispense.php" class="btn btn-sm btn-primary">Pharmacy Desk</a>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rx ID</th>
+                    <th>Patient Name & UHID</th>
+                    <th>Prescribing Doctor</th>
+                    <th>Prescribed Medicines</th>
+                    <th>Total Medicine Bill</th>
+                    <th>Status</th>
+                    <th>Patient Bill Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($dispensedBills)): ?>
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-prescription"></i>
+                            <p>No prescription bills recorded yet</p>
+                        </div>
+                    </td>
+                </tr>
+                <?php else: ?>
+                <?php foreach ($dispensedBills as $rx): ?>
+                <?php
+                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $rxTotal = 0;
+                foreach ($items as $it) {
+                    $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
+                    $invStmt->execute(['%' . $it['drug_name'] . '%']);
+                    $inv = $invStmt->fetch();
+                    $unitPrice = $inv ? (float)$inv['selling_price'] : 10.00;
+                    $qty = max(1, (int)($it['quantity'] ?: 10));
+                    $rxTotal += ($unitPrice * $qty);
+                }
+                ?>
+                <tr>
+                    <td><strong>#Rx-<?= $rx['id'] ?></strong></td>
+                    <td>
+                        <strong><?= sanitize($rx['patient_name']) ?></strong><br>
+                        <code class="text-xs"><?= sanitize($rx['uhid']) ?></code>
+                    </td>
+                    <td>Dr. <?= sanitize($rx['doctor_name']) ?></td>
+                    <td>
+                        <ul style="padding-left: 14px; margin: 0; font-size: 0.8125rem;">
+                            <?php foreach ($items as $it): ?>
+                            <li><?= sanitize($it['drug_name']) ?> (<?= sanitize($it['dosage']) ?>)</li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </td>
+                    <td><strong class="text-success" style="font-size: 1rem;"><?= formatCurrency($rxTotal) ?></strong></td>
+                    <td><span class="badge <?= $rx['status'] === 'dispensed' ? 'badge-success' : 'badge-warning' ?>"><?= ucfirst($rx['status']) ?></span></td>
+                    <td>
+                        <div class="d-flex gap-4">
+                            <a href="/receptionist/view_invoice.php?patient_id=<?= $rx['patient_id'] ?>" class="btn btn-sm btn-primary" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-receipt"></i> View Bill Details
+                            </a>
+                            <a href="/receptionist/print_invoice.php?patient_id=<?= $rx['patient_id'] ?>&autoprint=1" target="_blank" class="btn btn-sm btn-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-print"></i> Print
+                            </a>
+                        </div>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 <?php endif; ?>

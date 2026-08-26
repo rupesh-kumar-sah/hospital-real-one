@@ -12,9 +12,12 @@ $breadcrumbs = [['label' => 'Dashboard']];
 $db = getDB();
 $todayDate = date('Y-m-d');
 
+// Pending online appointment applications
+$pendingApprovalCount = $db->query("SELECT COUNT(*) as c FROM appointments WHERE status = 'pending_approval'")->fetch()['c'];
+
 // Today's appointments
-$todayAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = '{$todayDate}' OR appointment_date = DATE('now')")->fetch()['c'];
-$scheduledAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'scheduled'")->fetch()['c'];
+$todayAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = '{$todayDate}' OR appointment_date = DATE('now') OR appointment_date = DATE('now', 'localtime')")->fetch()['c'];
+$scheduledAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status IN ('scheduled', 'pending_approval')")->fetch()['c'];
 $checkedIn = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'checked_in'")->fetch()['c'];
 $completedToday = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'completed'")->fetch()['c'];
 
@@ -30,7 +33,7 @@ $pendingBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_stat
 // Today's revenue
 $todayRevenue = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE (DATE(created_at) = '{$todayDate}' OR DATE(created_at) = DATE('now')) AND payment_status = 'paid'")->fetch()['total'];
 
-// Today's upcoming appointments
+// All upcoming & online pending appointments
 $upcomingAppts = $db->query("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, u_p.phone as patient_phone, u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
@@ -39,9 +42,9 @@ $upcomingAppts = $db->query("
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE (a.appointment_date = '{$todayDate}' OR a.appointment_date = DATE('now')) AND a.status IN ('scheduled','checked_in')
-    ORDER BY a.appointment_time ASC
-    LIMIT 15
+    WHERE a.status IN ('pending_approval', 'scheduled', 'checked_in')
+    ORDER BY CASE WHEN a.status = 'pending_approval' THEN 1 WHEN a.status = 'scheduled' THEN 2 ELSE 3 END, a.appointment_date DESC, a.appointment_time ASC
+    LIMIT 20
 ")->fetchAll();
 
 // Available doctors today
@@ -163,11 +166,13 @@ include __DIR__ . '/../includes/header.php';
                     <td><?= formatTime($appt['appointment_time']) ?></td>
                     <td><?= statusBadge($appt['status'], APPOINTMENT_STATUSES) ?></td>
                     <td>
-                        <div class="btn-group">
-                            <?php if ($appt['status'] === 'scheduled'): ?>
-                            <a href="/receptionist/check_in.php?id=<?= $appt['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-check"></i></a>
+                        <div class="d-flex gap-4">
+                            <?php if ($appt['status'] === 'pending_approval'): ?>
+                            <a href="/receptionist/appointments.php?accept=<?= $appt['id'] ?>" class="btn btn-sm btn-success" style="font-weight:700;"><i class="fas fa-check-circle"></i> Accept & Confirm Date</a>
+                            <?php elseif ($appt['status'] === 'scheduled'): ?>
+                            <a href="/receptionist/check_in.php?id=<?= $appt['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-clipboard-check"></i> Check In & Bill</a>
                             <?php endif; ?>
-                            <a href="/receptionist/appointments.php?cancel=<?= $appt['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirmDelete('Cancel this appointment?')"><i class="fas fa-times"></i></a>
+                            <a href="/receptionist/appointments.php?cancel=<?= $appt['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Cancel this appointment?')"><i class="fas fa-times"></i></a>
                         </div>
                     </td>
                 </tr>

@@ -1,6 +1,27 @@
 services:
+  # 1. Render Private Service (Backend PHP HMS Server — Internal Network Only)
+  - type: pserv
+    name: medicare-hms-backend-private
+    env: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DB_DRIVER
+        value: sqlite
+      - key: DB_PATH
+        value: /var/www/html/data/hms.db
+      - key: DATA_SYNC_TOKEN
+        value: MEDICARE_HM_DATA_SYNC_SECRET_KEY_2026
+      - key: PORT
+        value: "10000"
+
+  # 2. Render Public Web Service (Public API Gateway & Secure Proxy)
   - type: web
-    name: medicare-hms-backend
+    name: medicare-hms-public-gateway
     env: docker
     plan: free
     region: singapore
@@ -10,11 +31,7 @@ services:
     envVars:
       - key: APP_ENV
         value: production
-      - key: DB_DRIVER
-        value: sqlite
-      - key: DB_PATH
-        value: /var/www/html/data/hms.db
-      - key: APP_ENCRYPTION_KEY
-        generateValue: true
+      - key: BACKEND_INTERNAL_HOST
+        value: medicare-hms-backend-private
       - key: PORT
         value: "10000"

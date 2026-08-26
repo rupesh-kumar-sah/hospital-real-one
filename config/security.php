@@ -38,11 +38,44 @@ if (!headers_sent()) {
 }
 
 // =====================================================
+// 2. WEB APPLICATION FIREWALL (WAF) THREAT INSPECTION
+// =====================================================
+function runFirewallSecurityInspection(): void {
+    $queryString = urldecode($_SERVER['QUERY_STRING'] ?? '');
+    $requestUri  = urldecode($_SERVER['REQUEST_URI'] ?? '');
+    $userAgent   = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    
+    // Malicious patterns
+    $wafPatterns = [
+        '/\b(union\s+select|select\s+.*\s+from|insert\s+into|delete\s+from|drop\s+table)\b/i',
+        '/<script\b[^>]*>(.*?)<\/script>/is',
+        '/javascript\s*:/i',
+        '/\b(eval\(|base64_decode\(|passthru\(|exec\(|system\()\b/i',
+        '/\.\.\/\.\.\//i' // Directory traversal
+    ];
+    
+    foreach ($wafPatterns as $pattern) {
+        if (preg_match($pattern, $queryString) || preg_match($pattern, $requestUri)) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Forbidden Access',
+                'message' => 'Request blocked by MediCare HMS Production Firewall WAF Filter.'
+            ]);
+            exit;
+        }
+    }
+}
+runFirewallSecurityInspection();
+
+// =====================================================
 // 2. SECURE SESSION COOKIE INI SETTINGS
 // =====================================================
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_samesite', 'Lax');
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @ini_set('session.cookie_httponly', '1');
+    @ini_set('session.use_only_cookies', '1');
+    @ini_set('session.cookie_samesite', 'Lax');
+}
 
 // =====================================================
 // 3. BRUTE-FORCE LOGIN RATE LIMITING

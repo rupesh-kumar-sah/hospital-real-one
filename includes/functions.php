@@ -18,7 +18,16 @@ function sanitize(string $input): string {
  */
 function formatDate(?string $date): string {
     if (!$date) return 'N/A';
-    return date(DISPLAY_DATE_FORMAT, strtotime($date));
+    try {
+        if (strpos($date, ' ') !== false || strpos($date, 'T') !== false) {
+            $dt = new DateTime($date, new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+            return $dt->format(DISPLAY_DATE_FORMAT);
+        }
+        return date(DISPLAY_DATE_FORMAT, strtotime($date));
+    } catch (Exception $e) {
+        return date(DISPLAY_DATE_FORMAT, strtotime($date));
+    }
 }
 
 /**
@@ -26,7 +35,16 @@ function formatDate(?string $date): string {
  */
 function formatTime(?string $time): string {
     if (!$time) return 'N/A';
-    return date(DISPLAY_TIME_FORMAT, strtotime($time));
+    try {
+        if (strpos($time, ' ') !== false || strpos($time, 'T') !== false) {
+            $dt = new DateTime($time, new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+            return $dt->format(DISPLAY_TIME_FORMAT);
+        }
+        return date(DISPLAY_TIME_FORMAT, strtotime($time));
+    } catch (Exception $e) {
+        return date(DISPLAY_TIME_FORMAT, strtotime($time));
+    }
 }
 
 /**
@@ -34,7 +52,13 @@ function formatTime(?string $time): string {
  */
 function formatDateTime(?string $datetime): string {
     if (!$datetime) return 'N/A';
-    return date(DISPLAY_DATETIME_FORMAT, strtotime($datetime));
+    try {
+        $dt = new DateTime($datetime, new DateTimeZone('UTC'));
+        $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+        return $dt->format(DISPLAY_DATETIME_FORMAT);
+    } catch (Exception $e) {
+        return date(DISPLAY_DATETIME_FORMAT, strtotime($datetime));
+    }
 }
 
 /**

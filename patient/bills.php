@@ -1,12 +1,12 @@
 <?php
 /**
- * Hospital Management System — Patient Bills View
+ * Hospital Management System — Patient: My Bills
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('patient');
 
-$pageTitle = 'My Hospital Bills';
+$pageTitle = 'My Invoices & Bills';
 $breadcrumbs = [['label' => 'Dashboard', 'url' => '/patient/dashboard.php'], ['label' => 'My Bills']];
 
 $db = getDB();
@@ -22,8 +22,8 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="page-header">
     <div>
-        <h1>My Hospital Invoices & Bills</h1>
-        <p class="page-subtitle">View consultation fees, lab charges and payment transaction history</p>
+        <h1>My Billing Invoices</h1>
+        <p class="page-subtitle">View consultation charges, medicine bills, and payment status</p>
     </div>
 </div>
 
@@ -33,26 +33,37 @@ include __DIR__ . '/../includes/header.php';
             <thead>
                 <tr>
                     <th>Invoice #</th>
-                    <th>Date</th>
                     <th>Subtotal</th>
                     <th>Discount</th>
-                    <th>Total Net Amount</th>
-                    <th>Payment Method</th>
-                    <th>Status</th>
+                    <th>Net Amount</th>
+                    <th>Payment Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
+                <?php if (empty($bills)): ?>
+                <tr><td colspan="7"><div class="empty-state"><p>No billing records found</p></div></td></tr>
+                <?php else: ?>
                 <?php foreach ($bills as $b): ?>
                 <tr>
                     <td><strong><?= sanitize($b['invoice_number']) ?></strong></td>
-                    <td><?= formatDate($b['created_at']) ?></td>
                     <td><?= formatCurrency($b['subtotal']) ?></td>
-                    <td>Rs. <?= $b['discount'] ?></td>
-                    <td class="font-bold text-success"><?= formatCurrency($b['net_amount']) ?></td>
-                    <td><?= ucfirst($b['payment_method'] ?: 'Cash') ?></td>
+                    <td><?= formatCurrency($b['discount']) ?></td>
+                    <td><strong class="text-accent"><?= formatCurrency($b['net_amount']) ?></strong></td>
                     <td><?= statusBadge($b['payment_status'], PAYMENT_STATUSES) ?></td>
+                    <td><?= formatDate($b['created_at']) ?></td>
+                    <td>
+                        <a href="/receptionist/view_invoice.php?patient_id=<?= $patientId ?>" class="btn btn-sm btn-primary">
+                            <i class="fas fa-receipt"></i> View Invoice
+                        </a>
+                        <a href="/receptionist/print_invoice.php?patient_id=<?= $patientId ?>&autoprint=1" target="_blank" class="btn btn-sm btn-success">
+                            <i class="fas fa-print"></i> Print
+                        </a>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>

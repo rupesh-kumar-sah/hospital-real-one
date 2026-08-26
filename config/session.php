@@ -5,7 +5,27 @@
 
 require_once __DIR__ . '/security.php';
 
-if (session_status() === PHP_SESSION_NONE) {
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @ini_set('session.gc_maxlifetime', '604800');
+    @ini_set('session.cookie_lifetime', '604800');
+    
+    // Differentiate session cookie name by server port to prevent cookie clobbering
+    $port = $_SERVER['SERVER_PORT'] ?? '9000';
+    $script = basename($_SERVER['PHP_SELF'] ?? '');
+    
+    if ($port == '9090' || $script === 'index.php' || str_starts_with($script, 'patient_')) {
+        session_name('PATIENT_FRONTEND_SESS');
+    } else {
+        session_name('STAFF_BACKEND_SESS');
+    }
+    
+    session_set_cookie_params([
+        'lifetime' => 604800,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    
     session_start();
 }
 

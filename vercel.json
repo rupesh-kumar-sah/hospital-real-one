@@ -1,12 +1,47 @@
 {
   "version": 2,
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "framework": null,
-  "rewrites": [
+  "name": "medicare-hms-frontend",
+  "cleanUrls": true,
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "https://medicare-hms-backend.onrender.com/$1"
+      "src": "/api/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/api/$1"
+    },
+    {
+      "src": "/auth/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/auth/$1"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/admin/$1"
+    },
+    {
+      "src": "/doctor/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/doctor/$1"
+    },
+    {
+      "src": "/receptionist/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/receptionist/$1"
+    },
+    {
+      "src": "/pharmacy/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/pharmacy/$1"
+    },
+    {
+      "src": "/lab/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/lab/$1"
+    },
+    {
+      "src": "/nurse/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/nurse/$1"
+    },
+    {
+      "src": "/patient/(.*)",
+      "dest": "https://medicare-hms-public-gateway.onrender.com/patient/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.php"
     }
   ]
 }

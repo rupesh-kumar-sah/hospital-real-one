@@ -16,20 +16,25 @@ $doctorId = $doctor['id'] ?? 0;
 $todayDate = date('Y-m-d');
 
 // Today's queue
+$whereDoc = $doctorId > 0 ? "a.doctor_id = ? AND" : "";
+$queueParams = $doctorId > 0 ? [$doctorId, $todayDate] : [$todayDate];
+
 $todayQueue = $db->prepare("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, p.date_of_birth, p.gender, p.blood_group, p.allergies
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN users u_p ON p.user_id = u_p.id
-    WHERE a.doctor_id = ? AND (a.appointment_date = ? OR a.appointment_date = DATE('now')) AND a.status IN ('scheduled','checked_in','in_progress')
+    WHERE {$whereDoc} (a.appointment_date = ? OR a.appointment_date = DATE('now', 'localtime')) AND a.status IN ('scheduled','checked_in','in_progress')
     ORDER BY a.token_number ASC
 ");
-$todayQueue->execute([$doctorId, $todayDate]);
+$todayQueue->execute($queueParams);
 $queue = $todayQueue->fetchAll();
 
 // Today's completed
-$completedToday = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE doctor_id = ? AND (appointment_date = ? OR appointment_date = DATE('now')) AND status = 'completed'");
-$completedToday->execute([$doctorId, $todayDate]);
+$whereDocComp = $doctorId > 0 ? "doctor_id = ? AND" : "";
+$compParams = $doctorId > 0 ? [$doctorId, $todayDate] : [$todayDate];
+$completedToday = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE {$whereDocComp} (appointment_date = ? OR appointment_date = DATE('now', 'localtime')) AND status = 'completed'");
+$completedToday->execute($compParams);
 $completed = $completedToday->fetch()['c'];
 
 // Total patients seen (all time)
@@ -61,6 +66,18 @@ $recentResults = $db->prepare("
 ");
 $recentResults->execute([$doctorId]);
 $labResults = $recentResults->fetchAll();
+
+// Doctor's Patient Prescriptions & Dispensed Medicine Bills
+$whereDocRx = $doctorId > 0 ? "WHERE pr.doctor_id = {$doctorId}" : "";
+$doctorPatientRx = $db->query("
+    SELECT pr.*, p.id as patient_db_id, p.uhid, u_p.full_name as patient_name
+    FROM prescriptions pr
+    JOIN patients p ON pr.patient_id = p.id
+    JOIN users u_p ON p.user_id = u_p.id
+    {$whereDocRx}
+    ORDER BY pr.created_at DESC
+    LIMIT 5
+")->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -191,6 +208,81 @@ include __DIR__ . '/../includes/header.php';
                         <a href="/doctor/consultation.php?appointment_id=<?= $patient['id'] ?>" class="btn btn-sm btn-success">
                             <i class="fas fa-stethoscope"></i> Consult
                         </a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Prescribed Patient Medicines & Dispensed Bills -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h3><i class="fas fa-pills" style="color: var(--warning);"></i> Prescribed Patient Medicines & Dispensed Bills</h3>
+        <a href="/doctor/prescriptions.php" class="btn btn-sm btn-secondary">View Prescriptions Log</a>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rx ID</th>
+                    <th>Patient Name & UHID</th>
+                    <th>Prescribed Medicines</th>
+                    <th>Total Medicine Bill</th>
+                    <th>Pharmacy Dispense Status</th>
+                    <th>Patient Bill Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($doctorPatientRx)): ?>
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-prescription-bottle"></i>
+                            <p>No prescriptions issued yet</p>
+                        </div>
+                    </td>
+                </tr>
+                <?php else: ?>
+                <?php foreach ($doctorPatientRx as $rx): ?>
+                <?php
+                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $rxTotal = 0;
+                foreach ($items as $it) {
+                    $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
+                    $invStmt->execute(['%' . $it['drug_name'] . '%']);
+                    $inv = $invStmt->fetch();
+                    $unitPrice = $inv ? (float)$inv['selling_price'] : 10.00;
+                    $qty = max(1, (int)($it['quantity'] ?: 10));
+                    $rxTotal += ($unitPrice * $qty);
+                }
+                ?>
+                <tr>
+                    <td><strong>#Rx-<?= $rx['id'] ?></strong></td>
+                    <td>
+                        <strong><?= sanitize($rx['patient_name']) ?></strong><br>
+                        <code class="text-xs"><?= sanitize($rx['uhid']) ?></code>
+                    </td>
+                    <td>
+                        <ul style="padding-left: 14px; margin: 0; font-size: 0.8125rem;">
+                            <?php foreach ($items as $it): ?>
+                            <li><strong><?= sanitize($it['drug_name']) ?></strong> (<?= sanitize($it['dosage']) ?>)</li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </td>
+                    <td><strong class="text-success" style="font-size: 1rem;"><?= formatCurrency($rxTotal) ?></strong></td>
+                    <td><span class="badge <?= $rx['status'] === 'dispensed' ? 'badge-success' : 'badge-warning' ?>"><?= ucfirst($rx['status']) ?></span></td>
+                    <td>
+                        <div class="d-flex gap-4">
+                            <a href="/receptionist/view_invoice.php?patient_id=<?= $rx['patient_id'] ?>" class="btn btn-sm btn-primary" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-receipt"></i> View Patient Bill
+                            </a>
+                            <a href="/receptionist/print_invoice.php?patient_id=<?= $rx['patient_id'] ?>&autoprint=1" target="_blank" class="btn btn-sm btn-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-print"></i> Print
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>

@@ -3,6 +3,9 @@
  * Hospital Management System — Constants
  */
 
+// Timezone
+date_default_timezone_set('Asia/Kathmandu');
+
 // Application
 define('APP_NAME', 'MediCare HMS');
 define('APP_VERSION', '1.0.0');
@@ -64,9 +67,10 @@ define('ROLE_COLORS', [
 
 // Appointment statuses
 define('APPOINTMENT_STATUSES', [
-    'scheduled' => ['label' => 'Scheduled', 'color' => '#3b82f6', 'icon' => 'fa-clock'],
-    'checked_in' => ['label' => 'Checked In', 'color' => '#f59e0b', 'icon' => 'fa-check-circle'],
-    'in_progress' => ['label' => 'In Progress', 'color' => '#8b5cf6', 'icon' => 'fa-spinner'],
+    'pending_approval' => ['label' => 'Pending Approval', 'color' => '#8b5cf6', 'icon' => 'fa-hourglass-half'],
+    'scheduled' => ['label' => 'Accepted & Confirmed', 'color' => '#3b82f6', 'icon' => 'fa-calendar-check'],
+    'checked_in' => ['label' => 'Checked In & Billed', 'color' => '#f59e0b', 'icon' => 'fa-check-circle'],
+    'in_progress' => ['label' => 'In Progress', 'color' => '#06b6d4', 'icon' => 'fa-stethoscope'],
     'completed' => ['label' => 'Completed', 'color' => '#10b981', 'icon' => 'fa-check-double'],
     'cancelled' => ['label' => 'Cancelled', 'color' => '#ef4444', 'icon' => 'fa-times-circle'],
     'no_show' => ['label' => 'No Show', 'color' => '#6b7280', 'icon' => 'fa-user-slash']

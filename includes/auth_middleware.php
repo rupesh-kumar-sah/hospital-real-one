@@ -72,9 +72,13 @@ function logAudit(string $action, string $tableName = '', int $recordId = 0, str
         
         $stmt = $db->prepare('INSERT INTO audit_logs (user_id, user_name, action, table_name, record_id, description, old_values, new_values, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         
+        $userId = getUserId();
+        $userIdParam = ($userId > 0) ? $userId : null;
+        $userNameParam = getUserName() ?: 'Guest/System';
+        
         $stmt->execute([
-            getUserId(),
-            getUserName(),
+            $userIdParam,
+            $userNameParam,
             $action,
             $tableName,
             $recordId,

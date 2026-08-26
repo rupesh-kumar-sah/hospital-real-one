@@ -25,8 +25,19 @@ function toggleNotifications() {
 function toggleUserMenu() {
     const userMenu = document.getElementById('userMenu');
     const panel = document.getElementById('notificationPanel');
+    const roleMenu = document.getElementById('roleMenu');
     if (panel) panel.classList.remove('active');
+    if (roleMenu) roleMenu.classList.remove('active');
     userMenu.classList.toggle('active');
+}
+
+function toggleRoleMenu() {
+    const roleMenu = document.getElementById('roleMenu');
+    const userMenu = document.getElementById('userMenu');
+    const panel = document.getElementById('notificationPanel');
+    if (userMenu) userMenu.classList.remove('active');
+    if (panel) panel.classList.remove('active');
+    if (roleMenu) roleMenu.classList.toggle('active');
 }
 
 // Close dropdowns on outside click
