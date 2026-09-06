@@ -7,7 +7,8 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole(['admin', 'nurse']);
 
 $pageTitle = 'Wards & Bed Management';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Wards & Beds']];
+$dashUrl = getUserRole() === 'nurse' ? '/nurse/dashboard.php' : '/admin/dashboard.php';
+$breadcrumbs = [['label' => 'Dashboard', 'url' => $dashUrl], ['label' => 'Wards & Beds']];
 
 $db = getDB();
 
@@ -21,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $db->prepare("INSERT INTO beds (ward_id, bed_number, status, daily_charge) VALUES (?, ?, 'available', ?)");
             $stmt->execute([$wardId, $bedNumber, $charge]);
             setFlash('success', "Bed {$bedNumber} added.");
-            header('Location: /admin/manage_wards.php');
+            header('Location: ' . $_SERVER['REQUEST_URI']);
             exit;
         }
     } elseif ($action === 'update_bed_status') {
@@ -30,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("UPDATE beds SET status = ? WHERE id = ?");
         $stmt->execute([$status, $bedId]);
         setFlash('success', "Bed status updated to {$status}.");
-        header('Location: /admin/manage_wards.php');
+        header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($action === 'delete_bed') {
         $bedId = (int)$_POST['bed_id'];
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$bedId]);
         logAudit('delete', 'beds', $bedId, "Deleted bed #{$bedId}");
         setFlash('success', "Bed deleted successfully.");
-        header('Location: /admin/manage_wards.php');
+        header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
 }

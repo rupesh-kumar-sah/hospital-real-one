@@ -8,6 +8,9 @@ require_once __DIR__ . '/config/session.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/constants.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/auth_middleware.php';
+
+requireLogin();
 
 $db = getDB();
 
@@ -42,6 +45,8 @@ if (!$bill) {
     die("Invoice not found.");
 }
 
+requirePatientOwnership((int)$bill['patient_id']);
+
 $items = [];
 if ($bill['id'] > 0) {
     $stmtItems = $db->prepare("SELECT * FROM billing_items WHERE bill_id = ?");
@@ -50,17 +55,19 @@ if ($bill['id'] > 0) {
 }
 
 // Fetch Doctor Consultation
-$doctorInfo = $db->query("
+$stmtDoc = $db->prepare("
     SELECT u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE a.patient_id = {$bill['patient_id']}
+    WHERE a.patient_id = ?
     ORDER BY a.id DESC LIMIT 1
-")->fetch();
+");
+$stmtDoc->execute([$bill['patient_id']]);
+$doctorInfo = $stmtDoc->fetch();
 
-$activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image != '' LIMIT 1")->fetch();
+$activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image IS NOT NULL AND qr_image != '' LIMIT 1")->fetch();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -137,7 +144,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         <div>
             <?php if ($activePM): ?>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="<?= $activePM['qr_image'] ?>" style="width: 80px; height: 80px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" style="width: 80px; height: 80px; border-radius: 6px; border: 1px solid #cbd5e1;">
                 <div style="font-size: 0.8rem; color: #475569;">
                     <strong>Hospital Payment QR</strong><br>
                     Pay via eSewa / Khalti / Fonepay

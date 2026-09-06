@@ -19,9 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dosage = trim($_POST['dosage']);
 
     if ($admissionId && $drugName) {
-        $adm = $db->query("SELECT patient_id FROM admissions WHERE id = {$admissionId}")->fetch();
+        $stmtAdm = $db->prepare("SELECT patient_id FROM admissions WHERE id = ?");
+        $stmtAdm->execute([$admissionId]);
+        $adm = $stmtAdm->fetch();
+        $patientId = $adm['patient_id'] ?? 0;
         $stmt = $db->prepare("INSERT INTO medication_administration (admission_id, patient_id, nurse_id, drug_name, dosage, administered_at, status) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'administered')");
-        $stmt->execute([$admissionId, $adm['patient_id'], $nurseId, $drugName, $dosage]);
+        $stmt->execute([$admissionId, $patientId, $nurseId, $drugName, $dosage]);
 
         setFlash('success', "Medication '{$drugName}' marked as administered.");
         header('Location: /nurse/medication.php');

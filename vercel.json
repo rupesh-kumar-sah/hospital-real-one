@@ -1,9 +1,12 @@
 {
   "version": 2,
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "framework": null,
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "https://medicare-hms-public-gateway.onrender.com/$1"
+      "destination": "https://medicare-hms-backend.onrender.com/$1"
     }
   ]
 }

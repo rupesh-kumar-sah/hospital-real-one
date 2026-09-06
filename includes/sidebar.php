@@ -17,6 +17,8 @@ $db = getDB();
 // Define navigation items per role
 $navItems = [];
 
+$todayDate = date('Y-m-d');
+
 switch ($currentUser['role']) {
     case 'admin':
         $navItems = [
@@ -37,7 +39,10 @@ switch ($currentUser['role']) {
         break;
 
     case 'receptionist':
-        $pendingAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = DATE('now') AND status = 'scheduled'")->fetch()['c'];
+        $stmtPending = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = ? AND status = 'scheduled'");
+        $stmtPending->execute([$todayDate]);
+        $pendingAppts = (int)($stmtPending->fetch()['c'] ?? 0);
+
         $navItems = [
             ['section' => 'Main'],
             ['label' => 'Dashboard', 'icon' => 'fa-chart-pie', 'url' => '/receptionist/dashboard.php', 'file' => 'dashboard.php', 'dir' => 'receptionist'],
@@ -52,9 +57,9 @@ switch ($currentUser['role']) {
         break;
 
     case 'doctor':
-        $todayAppts = $db->prepare("SELECT COUNT(*) as c FROM appointments a JOIN doctors d ON a.doctor_id = d.id WHERE d.user_id = ? AND a.appointment_date = DATE('now') AND a.status IN ('scheduled','checked_in')");
-        $todayAppts->execute([$currentUser['id']]);
-        $queueCount = $todayAppts->fetch()['c'];
+        $todayAppts = $db->prepare("SELECT COUNT(*) as c FROM appointments a JOIN doctors d ON a.doctor_id = d.id WHERE d.user_id = ? AND a.appointment_date = ? AND a.status IN ('scheduled','checked_in')");
+        $todayAppts->execute([$currentUser['id'], $todayDate]);
+        $queueCount = (int)($todayAppts->fetch()['c'] ?? 0);
         
         $navItems = [
             ['section' => 'Main'],
@@ -100,8 +105,10 @@ switch ($currentUser['role']) {
         break;
 
     case 'pharmacist':
-        $pendingRx = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'pending'")->fetch()['c'];
-        $lowStock = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch()['c'];
+        $rxFetch = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'pending'")->fetch();
+        $pendingRx = (int)($rxFetch['c'] ?? 0);
+        $stockFetch = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch();
+        $lowStock = (int)($stockFetch['c'] ?? 0);
         
         $navItems = [
             ['section' => 'Main'],
@@ -115,7 +122,8 @@ switch ($currentUser['role']) {
         break;
 
     case 'lab_technician':
-        $pendingTests = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('ordered','sample_collected','processing')")->fetch()['c'];
+        $labFetch = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('ordered','sample_collected','processing')")->fetch();
+        $pendingTests = (int)($labFetch['c'] ?? 0);
         
         $navItems = [
             ['section' => 'Main'],

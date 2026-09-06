@@ -385,10 +385,43 @@ CREATE TABLE IF NOT EXISTS payment_methods (
     name VARCHAR(100) NOT NULL,
     account_name VARCHAR(100) DEFAULT NULL,
     account_number VARCHAR(100) DEFAULT NULL,
-    qr_image VARCHAR(255) DEFAULT NULL,
+    qr_image TEXT DEFAULT NULL,
     instructions TEXT,
     status VARCHAR(20) DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 23. REFRESH TOKENS (JWT Decoupled Authentication)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    revoked TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT,
+    CONSTRAINT fk_rt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 24. PERFORMANCE INDEXES
+CREATE INDEX idx_appointments_date_status ON appointments (appointment_date, status);
+CREATE INDEX idx_appointments_patient ON appointments (patient_id);
+CREATE INDEX idx_appointments_doctor ON appointments (doctor_id);
+CREATE INDEX idx_billing_created_status ON billing (created_at, payment_status);
+CREATE INDEX idx_billing_patient ON billing (patient_id);
+CREATE INDEX idx_prescriptions_created_status ON prescriptions (created_at, status);
+CREATE INDEX idx_prescriptions_patient ON prescriptions (patient_id);
+CREATE INDEX idx_lab_orders_date_status ON lab_orders (ordered_at, status);
+CREATE INDEX idx_lab_orders_patient ON lab_orders (patient_id);
+CREATE INDEX idx_notifications_user_read ON notifications (user_id, is_read);
+CREATE INDEX idx_notifications_user_created ON notifications (user_id, created_at DESC);
+CREATE INDEX idx_patients_created ON patients (created_at);
+CREATE INDEX idx_password_resets_token_exp ON password_resets (token, expires_at);
+CREATE INDEX idx_pharmacy_inv_name_status ON pharmacy_inventory (drug_name(50), status);
+CREATE INDEX idx_refresh_tokens_hash_exp ON refresh_tokens (token_hash, expires_at, revoked);
+
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+

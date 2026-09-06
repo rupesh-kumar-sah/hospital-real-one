@@ -19,8 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reason = trim($_POST['reason']);
 
     if ($patientId && $bedId) {
-        $bed = $db->query("SELECT ward_id FROM beds WHERE id = {$bedId}")->fetch();
-        $wardId = $bed['ward_id'];
+        $stmtBed = $db->prepare("SELECT ward_id FROM beds WHERE id = ?");
+        $stmtBed->execute([$bedId]);
+        $bed = $stmtBed->fetch();
+        $wardId = $bed['ward_id'] ?? null;
 
         $db->beginTransaction();
         $stmt = $db->prepare("INSERT INTO admissions (patient_id, doctor_id, bed_id, ward_id, admit_date, status, reason) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'admitted', ?)");

@@ -8,7 +8,9 @@ require_once __DIR__ . '/../config/security.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/encryption.php';
 
-header('Content-Type: application/json');
+if (!headers_sent()) {
+    header('Content-Type: application/json');
+}
 
 $startTime = microtime(true);
 $response = [
@@ -45,5 +47,7 @@ try {
 
 $response['total_duration_ms'] = round((microtime(true) - $startTime) * 1000, 2);
 
-http_response_code($response['status'] === 'ok' ? 200 : 500);
+if (!headers_sent()) {
+    http_response_code($response['status'] === 'ok' ? 200 : 500);
+}
 echo json_encode($response, JSON_PRETTY_PRINT);

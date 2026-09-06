@@ -17,6 +17,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $fullName = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
@@ -104,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         
         <form method="POST" action="" id="registerForm">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label" for="full_name">Full Name <span class="required">*</span></label>
                 <input type="text" class="form-control" id="full_name" name="full_name" 

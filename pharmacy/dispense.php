@@ -27,7 +27,9 @@ if (isset($_GET['dispense_id'])) {
             $upd->execute([$rxId]);
 
             // Get prescription items
-            $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rxId}")->fetchAll();
+            $stmtItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+            $stmtItems->execute([$rxId]);
+            $items = $stmtItems->fetchAll();
             
             $rxGrandTotal = 0;
 
@@ -143,9 +145,15 @@ include __DIR__ . '/../includes/header.php';
                     </td>
                 </tr>
                 <?php else: ?>
+                <?php 
+                $invCache = [];
+                $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
+                $stmtRxItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+                ?>
                 <?php foreach ($prescriptions as $rx): ?>
                 <?php
-                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $stmtRxItems->execute([$rx['id']]);
+                $items = $stmtRxItems->fetchAll();
                 $rxTotal = 0;
                 ?>
                 <tr>
@@ -177,14 +185,18 @@ include __DIR__ . '/../includes/header.php';
                             <tbody>
                                 <?php foreach ($items as $it): ?>
                                 <?php
-                                $invStmt = $db->prepare("SELECT * FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
-                                $invStmt->execute(['%' . $it['drug_name'] . '%']);
-                                $inv = $invStmt->fetch();
-                                $unitPrice = $inv ? (float)$inv['selling_price'] : 10.00;
+                                $drugKey = trim($it['drug_name']);
+                                if (!isset($invCache[$drugKey])) {
+                                    $invStmt->execute(['%' . $drugKey . '%']);
+                                    $inv = $invStmt->fetch();
+                                    $invCache[$drugKey] = $inv ? (float)$inv['selling_price'] : 10.00;
+                                }
+                                $unitPrice = $invCache[$drugKey];
                                 $qty = max(1, (int)($it['quantity'] ?: 10));
                                 $itemSubtotal = $unitPrice * $qty;
                                 $rxTotal += $itemSubtotal;
                                 ?>
+
                                 <tr style="border-bottom: 1px dashed var(--gray-200);">
                                     <td style="padding: 4px 6px;">
                                         <strong><?= sanitize($it['drug_name']) ?></strong>

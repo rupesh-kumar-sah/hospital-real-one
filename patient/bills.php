@@ -13,9 +13,9 @@ $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
-$bills = $db->query("
-    SELECT * FROM billing WHERE patient_id = {$patientId} ORDER BY created_at DESC
-")->fetchAll();
+$stmtBills = $db->prepare("SELECT * FROM billing WHERE patient_id = ? ORDER BY created_at DESC");
+$stmtBills->execute([$patientId]);
+$bills = $stmtBills->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

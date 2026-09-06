@@ -18,6 +18,7 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     
@@ -126,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" action="" id="loginForm">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label" for="username">Username or Email</label>
                 <input type="text" class="form-control" id="username" name="username" 

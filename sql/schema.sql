@@ -504,7 +504,7 @@ CREATE TABLE IF NOT EXISTS payment_methods (
     name VARCHAR(100) NOT NULL,
     account_name VARCHAR(100),
     account_number VARCHAR(100),
-    qr_image VARCHAR(255),
+    qr_image TEXT,
     instructions TEXT,
     status VARCHAR(20) DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -518,6 +518,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
     token VARCHAR(64) UNIQUE NOT NULL,
     expires_at DATETIME NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    revoked INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -547,9 +559,15 @@ CREATE INDEX IF NOT EXISTS idx_vitals_patient ON vitals(patient_id);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_patient ON lab_orders(patient_id);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_status ON lab_orders(status);
 CREATE INDEX IF NOT EXISTS idx_billing_patient ON billing(patient_id);
-CREATE INDEX IF NOT EXISTS idx_billing_status ON billing(payment_status);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_table ON audit_logs(table_name);
+CREATE INDEX IF NOT EXISTS idx_appointments_date_status ON appointments(appointment_date, status);
+CREATE INDEX IF NOT EXISTS idx_billing_created_status ON billing(created_at, payment_status);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_created_status ON prescriptions(created_at, status);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_date_status ON lab_orders(ordered_at, status);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_patients_created ON patients(created_at);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token_exp ON password_resets(token, expires_at);
+CREATE INDEX IF NOT EXISTS idx_pharmacy_inv_name_status ON pharmacy_inventory(drug_name, status);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash_exp ON refresh_tokens(token_hash, expires_at, revoked);
+
+

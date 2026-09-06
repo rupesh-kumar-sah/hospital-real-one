@@ -13,14 +13,16 @@ $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
-$labReports = $db->query("
+$stmtLab = $db->prepare("
     SELECT lo.*, u_d.full_name as doctor_name
     FROM lab_orders lo
     LEFT JOIN doctors d ON lo.doctor_id = d.id
     LEFT JOIN users u_d ON d.user_id = u_d.id
-    WHERE lo.patient_id = {$patientId}
+    WHERE lo.patient_id = ?
     ORDER BY lo.ordered_at DESC
-")->fetchAll();
+");
+$stmtLab->execute([$patientId]);
+$labReports = $stmtLab->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

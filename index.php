@@ -59,8 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $db->commit();
 
                 // Auto Login Patient
-                $userRecord = $db->query("SELECT * FROM users WHERE id = {$userId}")->fetch();
-                setUserSession($userRecord);
+                $stmtRecord = $db->prepare("SELECT * FROM users WHERE id = ?");
+                $stmtRecord->execute([$userId]);
+                $userRecord = $stmtRecord->fetch();
+                if ($userRecord) {
+                    setUserSession($userRecord);
+                }
                 logAudit('register', 'users', $userId, "New patient registered with UHID {$uhid}");
                 setFlash('success', "Welcome {$fullName}! Your Patient UHID is {$uhid}. You can now book appointments easily.");
                 header('Location: /#booking');
@@ -266,7 +270,7 @@ $doctors = $db->query("
     ORDER BY u.full_name ASC
 ")->fetchAll();
 
-$activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image != '' LIMIT 1")->fetch();
+$activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image IS NOT NULL AND qr_image != '' LIMIT 1")->fetch();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -423,7 +427,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
             <?php if ($activePM && !empty($activePM['qr_image'])): ?>
             <div style="background: #ffffff; border: 1px dashed #16a34a; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="<?= $activePM['qr_image'] ?>" alt="Hospital Payment QR" style="width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" alt="Hospital Payment QR" style="width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e2e8f0;">
                     <div>
                         <div style="font-weight: 700; font-size: 0.85rem; color: #15803d;">Hospital Payment QR Code</div>
                         <div style="font-size: 0.75rem; color: #475569;">Scan with eSewa / Khalti / Mobile Banking to pay</div>
@@ -552,7 +556,8 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         </div>
 
         <div style="border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-lg);">
-            <img src="/assets/images/hospital_building.jpg" alt="<?= APP_NAME ?> Building Facade" style="width: 100%; height: 400px; object-fit: cover;">
+            <img src="/assets/images/hospital_building.jpg" alt="<?= APP_NAME ?> Building Facade" loading="lazy" style="width: 100%; height: 400px; object-fit: cover;">
+
         </div>
     </div>
 </section>

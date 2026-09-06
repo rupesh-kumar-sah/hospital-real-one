@@ -30,7 +30,12 @@ if (isset($_GET['id'])) {
         $fee = (float)($appt['consultation_fee'] ?: 500);
         $patientId = $appt['patient_id'];
 
-        $existingBill = $db->query("SELECT id FROM billing WHERE patient_id = {$patientId} AND DATE(created_at) = DATE('now') LIMIT 1")->fetch();
+        $todayDate = date('Y-m-d');
+        $nextDate = date('Y-m-d', strtotime('+1 day'));
+        $existingStmt = $db->prepare("SELECT id FROM billing WHERE patient_id = ? AND created_at >= ? AND created_at < ? LIMIT 1");
+        $existingStmt->execute([$patientId, $todayDate, $nextDate]);
+        $existingBill = $existingStmt->fetch();
+
 
         if (!$existingBill) {
             $invNum = generateInvoiceNumber();
@@ -50,7 +55,7 @@ if (isset($_GET['id'])) {
     }
 }
 
-$todayAppts = $db->query("
+$stmtToday = $db->prepare("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
@@ -58,9 +63,11 @@ $todayAppts = $db->query("
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE a.appointment_date = DATE('now') OR a.appointment_date = DATE('now', 'localtime')
+    WHERE a.appointment_date = ?
     ORDER BY a.status DESC, a.token_number ASC
-")->fetchAll();
+");
+$stmtToday->execute([date('Y-m-d')]);
+$todayAppts = $stmtToday->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

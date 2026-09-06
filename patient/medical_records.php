@@ -13,15 +13,17 @@ $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
-$records = $db->query("
+$stmtRec = $db->prepare("
     SELECT a.*, u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE a.patient_id = {$patientId} AND a.status = 'completed'
+    WHERE a.patient_id = ? AND a.status = 'completed'
     ORDER BY a.appointment_date DESC
-")->fetchAll();
+");
+$stmtRec->execute([$patientId]);
+$records = $stmtRec->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

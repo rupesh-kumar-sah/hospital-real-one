@@ -16,8 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $summary = trim($_POST['discharge_summary']);
 
     if ($admissionId) {
-        $adm = $db->query("SELECT bed_id FROM admissions WHERE id = {$admissionId}")->fetch();
-        $bedId = $adm['bed_id'];
+        $stmtAdm = $db->prepare("SELECT bed_id FROM admissions WHERE id = ?");
+        $stmtAdm->execute([$admissionId]);
+        $adm = $stmtAdm->fetch();
+        $bedId = $adm['bed_id'] ?? null;
 
         $db->beginTransaction();
         $stmt = $db->prepare("UPDATE admissions SET status = 'discharged', discharge_date = CURRENT_TIMESTAMP, discharge_summary = ? WHERE id = ?");

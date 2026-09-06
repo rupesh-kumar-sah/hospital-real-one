@@ -22,14 +22,16 @@ $userInfo = null;
 $db = getDB();
 
 if ($token) {
+    $nowDate = date('Y-m-d H:i:s');
     $stmt = $db->prepare("
         SELECT pr.*, u.username, u.email, u.full_name 
         FROM password_resets pr
         JOIN users u ON pr.user_id = u.id
-        WHERE pr.token = ? AND pr.expires_at > DATETIME('now')
+        WHERE pr.token = ? AND pr.expires_at > ?
     ");
-    $stmt->execute([$token]);
+    $stmt->execute([$token, $nowDate]);
     $resetData = $stmt->fetch();
+
     
     if ($resetData) {
         $tokenValid = true;

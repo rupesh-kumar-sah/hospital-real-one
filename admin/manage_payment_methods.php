@@ -24,26 +24,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = $_POST['status'] ?? 'active';
         $qrImagePath = $_POST['existing_qr'] ?? '';
 
-        // Handle File Upload (QR Image)
+        // Handle File Upload (QR Image) — Store as Base64 data URI in database
+        // This avoids filesystem dependency (Render/Docker ephemeral storage wipes uploads on deploy)
         if (isset($_FILES['qr_image']) && $_FILES['qr_image']['error'] === UPLOAD_ERR_OK) {
             $fileTmp = $_FILES['qr_image']['tmp_name'];
-            $fileName = $_FILES['qr_image']['name'];
-            $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+            $fileSize = $_FILES['qr_image']['size'];
+            $maxSize = 2 * 1024 * 1024; // 2MB max
 
-            if (in_array($fileExt, $allowedExts)) {
-                $uploadDir = __DIR__ . '/../uploads/qr_codes/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-                $newFileName = 'qr_' . time() . '_' . rand(1000, 9999) . '.' . $fileExt;
-                $targetPath = $uploadDir . $newFileName;
-
-                if (move_uploaded_file($fileTmp, $targetPath)) {
-                    $qrImagePath = '/uploads/qr_codes/' . $newFileName;
-                }
+            if ($fileSize > $maxSize) {
+                setFlash('error', 'QR image too large. Maximum file size is 2MB.');
             } else {
-                setFlash('error', 'Invalid image format. Allowed formats: JPG, PNG, WEBP.');
+                // Validate actual image MIME type using getimagesize (prevents disguised file uploads)
+                $imageInfo = @getimagesize($fileTmp);
+                if ($imageInfo === false) {
+                    setFlash('error', 'Invalid image file. The uploaded file is not a valid image.');
+                } else {
+                    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                    $mime = $imageInfo['mime'];
+
+                    if (!in_array($mime, $allowedMimes)) {
+                        setFlash('error', 'Invalid image format. Allowed: JPG, PNG, WEBP, GIF.');
+                    } else {
+                        // Read file and convert to Base64 data URI
+                        $imageData = file_get_contents($fileTmp);
+                        if ($imageData !== false) {
+                            $qrImagePath = 'data:' . $mime . ';base64,' . base64_encode($imageData);
+                        } else {
+                            setFlash('error', 'Failed to read uploaded image file.');
+                        }
+                    }
+                }
             }
         }
 
@@ -197,8 +207,12 @@ include __DIR__ . '/../includes/header.php';
 
                 <div class="form-group">
                     <label class="form-label">Upload Scannable QR Code Photo (eSewa / Khalti / Fonepay)</label>
-                    <input type="file" name="qr_image" class="form-control" accept="image/*">
-                    <span class="text-xs text-muted">Upload PNG or JPG image of your official QR code</span>
+                    <input type="file" name="qr_image" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif">
+                    <span class="text-xs text-muted">Upload PNG or JPG image of your official QR code (max 2MB). Stored securely in database.</span>
+                    <div id="existingQrPreview" style="margin-top: 8px; display: none;">
+                        <span class="text-xs text-muted">Current QR Image:</span>
+                        <img id="existingQrImg" src="" alt="Current QR" style="width: 80px; height: 80px; border-radius: 6px; border: 1px solid var(--gray-300); display: block; margin-top: 4px;">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -223,6 +237,7 @@ function openPaymentModal() {
     document.getElementById('instructions').value = '';
     document.getElementById('existing_qr').value = '';
     document.getElementById('status').value = 'active';
+    document.getElementById('existingQrPreview').style.display = 'none';
     document.getElementById('paymentModalTitle').innerHTML = '<i class="fas fa-qrcode text-primary"></i> Add Payment Option / QR';
     openModal('paymentModal');
 }
@@ -235,6 +250,15 @@ function editPaymentModal(data) {
     document.getElementById('instructions').value = data.instructions || '';
     document.getElementById('existing_qr').value = data.qr_image || '';
     document.getElementById('status').value = data.status || 'active';
+    // Show existing QR preview if available
+    let preview = document.getElementById('existingQrPreview');
+    let previewImg = document.getElementById('existingQrImg');
+    if (data.qr_image) {
+        previewImg.src = data.qr_image;
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
     document.getElementById('paymentModalTitle').innerHTML = '<i class="fas fa-edit text-primary"></i> Edit ' + data.name;
     openModal('paymentModal');
 }

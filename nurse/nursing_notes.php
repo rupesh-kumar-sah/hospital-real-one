@@ -19,9 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $priority = $_POST['priority'];
 
     if ($admissionId && $note) {
-        $adm = $db->query("SELECT patient_id FROM admissions WHERE id = {$admissionId}")->fetch();
+        $stmtAdm = $db->prepare("SELECT patient_id FROM admissions WHERE id = ?");
+        $stmtAdm->execute([$admissionId]);
+        $adm = $stmtAdm->fetch();
+        $patientId = $adm['patient_id'] ?? 0;
         $stmt = $db->prepare("INSERT INTO nursing_notes (admission_id, patient_id, nurse_id, note, priority) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$admissionId, $adm['patient_id'], $nurseId, $note, $priority]);
+        $stmt->execute([$admissionId, $patientId, $nurseId, $note, $priority]);
 
         setFlash('success', 'Nursing observation note added.');
         header('Location: /nurse/nursing_notes.php');

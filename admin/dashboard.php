@@ -14,34 +14,55 @@ $db = getDB();
 
 $todayDate = date('Y-m-d');
 
+$currentMonth = date('Y-m');
+
 // === STATS ===
 // Today's appointments
-$todayAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = '{$todayDate}' OR appointment_date = DATE('now')")->fetch()['c'];
-$todayCompleted = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'completed'")->fetch()['c'];
+$stmtTodayAppts = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = ?");
+$stmtTodayAppts->execute([$todayDate]);
+$todayAppts = (int)($stmtTodayAppts->fetch()['c'] ?? 0);
+
+$stmtTodayComp = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = ? AND status = 'completed'");
+$stmtTodayComp->execute([$todayDate]);
+$todayCompleted = (int)($stmtTodayComp->fetch()['c'] ?? 0);
 
 // Total patients
-$totalPatients = $db->query("SELECT COUNT(*) as c FROM patients")->fetch()['c'];
-$newPatientsToday = $db->query("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at) = '{$todayDate}' OR DATE(created_at) = DATE('now')")->fetch()['c'];
+$stmtTotPts = $db->query("SELECT COUNT(*) as c FROM patients")->fetch();
+$totalPatients = (int)($stmtTotPts['c'] ?? 0);
+
+$stmtNewPts = $db->prepare("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at) = ?");
+$stmtNewPts->execute([$todayDate]);
+$newPatientsToday = (int)($stmtNewPts['c'] ?? 0);
 
 // Active admissions
-$activeAdmissions = $db->query("SELECT COUNT(*) as c FROM admissions WHERE status = 'admitted'")->fetch()['c'];
+$stmtAdmissions = $db->query("SELECT COUNT(*) as c FROM admissions WHERE status = 'admitted'")->fetch();
+$activeAdmissions = (int)($stmtAdmissions['c'] ?? 0);
 
 // Total doctors
-$totalDoctors = $db->query("SELECT COUNT(*) as c FROM doctors d JOIN users u ON d.user_id = u.id WHERE u.status = 'active'")->fetch()['c'];
+$stmtDoc = $db->query("SELECT COUNT(*) as c FROM doctors d JOIN users u ON d.user_id = u.id WHERE u.status = 'active'")->fetch();
+$totalDoctors = (int)($stmtDoc['c'] ?? 0);
 
 // Bed occupancy
-$totalBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status != 'maintenance'")->fetch()['c'];
-$occupiedBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'occupied'")->fetch()['c'];
+$stmtTotBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status != 'maintenance'")->fetch();
+$totalBeds = (int)($stmtTotBeds['c'] ?? 0);
+
+$stmtOccBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'occupied'")->fetch();
+$occupiedBeds = (int)($stmtOccBeds['c'] ?? 0);
 $bedOccupancyRate = $totalBeds > 0 ? round(($occupiedBeds / $totalBeds) * 100) : 0;
 
 // Revenue today
-$revenueToday = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE (DATE(created_at) = '{$todayDate}' OR DATE(created_at) = DATE('now')) AND payment_status = 'paid'")->fetch()['total'];
+$stmtRevToday = $db->prepare("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE DATE(created_at) = ? AND payment_status = 'paid'");
+$stmtRevToday->execute([$todayDate]);
+$revenueToday = (float)($stmtRevToday->fetch()['total'] ?? 0);
 
-// Revenue this month
-$revenueMonth = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND payment_status = 'paid'")->fetch()['total'];
+// Revenue this month (Cross-database compatible via PHP date prefix check)
+$stmtRevMonth = $db->prepare("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE created_at LIKE ? AND payment_status = 'paid'");
+$stmtRevMonth->execute([$currentMonth . '%']);
+$revenueMonth = (float)($stmtRevMonth->fetch()['total'] ?? 0);
 
 // Pending bills
-$pendingBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_status = 'unpaid'")->fetch()['c'];
+$stmtPendBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_status = 'unpaid'")->fetch();
+$pendingBills = (int)($stmtPendBills['c'] ?? 0);
 
 // Revenue breakdown by payment method
 $paymentMethodStats = $db->query("
@@ -72,15 +93,17 @@ $recentAppts = $db->query("
 ")->fetchAll();
 
 // Department-wise appointments today
-$deptAppts = $db->query("
+$deptAppts = $db->prepare("
     SELECT dep.name, COUNT(a.id) as count
     FROM departments dep
-    LEFT JOIN appointments a ON a.department_id = dep.id AND a.appointment_date = DATE('now')
+    LEFT JOIN appointments a ON a.department_id = dep.id AND a.appointment_date = ?
     WHERE dep.status = 'active'
     GROUP BY dep.id, dep.name
     ORDER BY count DESC
     LIMIT 8
-")->fetchAll();
+");
+$deptAppts->execute([$todayDate]);
+$deptAppts = $deptAppts->fetchAll();
 
 // Recent activity (audit logs)
 $recentActivity = $db->query("
@@ -88,10 +111,12 @@ $recentActivity = $db->query("
 ")->fetchAll();
 
 // Pharmacy alerts
-$lowStockCount = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch()['c'];
+$stmtLowStock = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch();
+$lowStockCount = (int)($stmtLowStock['c'] ?? 0);
 
 // Pending lab tests
-$pendingLabTests = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('ordered','sample_collected','processing')")->fetch()['c'];
+$stmtPendingLab = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('ordered','sample_collected','processing')")->fetch();
+$pendingLabTests = (int)($stmtPendingLab['c'] ?? 0);
 
 // Dispensed Medicine Bills for Admin Overview
 $dispensedBills = $db->query("
@@ -411,7 +436,9 @@ include __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                 <?php foreach ($dispensedBills as $rx): ?>
                 <?php
-                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $stmtRxItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+                $stmtRxItems->execute([$rx['id']]);
+                $items = $stmtRxItems->fetchAll();
                 $rxTotal = 0;
                 foreach ($items as $it) {
                     $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
@@ -525,9 +552,14 @@ new Chart(deptCtx, {
 
 // Bed Occupancy Doughnut Chart
 <?php
-$availableBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'available'")->fetch()['c'];
-$reservedBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'reserved'")->fetch()['c'];
-$maintenanceBeds = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'maintenance'")->fetch()['c'];
+$stmtAvail = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'available'")->fetch();
+$availableBeds = (int)($stmtAvail['c'] ?? 0);
+
+$stmtRes = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'reserved'")->fetch();
+$reservedBeds = (int)($stmtRes['c'] ?? 0);
+
+$stmtMaint = $db->query("SELECT COUNT(*) as c FROM beds WHERE status = 'maintenance'")->fetch();
+$maintenanceBeds = (int)($stmtMaint['c'] ?? 0);
 ?>
 const bedCtx = document.getElementById('bedChart').getContext('2d');
 new Chart(bedCtx, {

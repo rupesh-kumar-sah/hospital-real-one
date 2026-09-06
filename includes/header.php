@@ -31,8 +31,9 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js (Deferred for non-blocking rendering) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+
     
     <!-- Main CSS -->
     <link rel="stylesheet" href="/assets/css/style.css">

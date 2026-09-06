@@ -13,28 +13,40 @@ $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
+$todayDate = date('Y-m-d');
+
 // Upcoming appointments
-$upcomingAppts = $db->query("
+$stmtNextAppts = $db->prepare("
     SELECT a.*, u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE a.patient_id = {$patientId} AND (a.appointment_date >= DATE('now') OR a.appointment_date = DATE('now')) AND a.status IN ('scheduled','checked_in','pending_approval')
+    WHERE a.patient_id = ? AND a.appointment_date >= ? AND a.status IN ('scheduled','checked_in','pending_approval')
     ORDER BY a.appointment_date ASC, a.appointment_time ASC
-")->fetchAll();
+");
+$stmtNextAppts->execute([$patientId, $todayDate]);
+$upcomingAppts = $stmtNextAppts->fetchAll();
 
 // Total visits
-$totalVisits = $db->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id = {$patientId} AND status = 'completed'")->fetch()['c'];
+$stmtVisits = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE patient_id = ? AND status = 'completed'");
+$stmtVisits->execute([$patientId]);
+$totalVisits = (int)($stmtVisits->fetch()['c'] ?? 0);
 
 // Active prescriptions count
-$rxCount = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE patient_id = {$patientId}")->fetch()['c'];
+$stmtRx = $db->prepare("SELECT COUNT(*) as c FROM prescriptions WHERE patient_id = ?");
+$stmtRx->execute([$patientId]);
+$rxCount = (int)($stmtRx->fetch()['c'] ?? 0);
 
 // Lab reports count
-$labCount = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE patient_id = {$patientId}")->fetch()['c'];
+$stmtLab = $db->prepare("SELECT COUNT(*) as c FROM lab_orders WHERE patient_id = ?");
+$stmtLab->execute([$patientId]);
+$labCount = (int)($stmtLab->fetch()['c'] ?? 0);
 
 // Total pending bill
-$unpaidBills = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE patient_id = {$patientId} AND payment_status = 'unpaid'")->fetch()['total'];
+$stmtUnpaid = $db->prepare("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE patient_id = ? AND payment_status = 'unpaid'");
+$stmtUnpaid->execute([$patientId]);
+$unpaidBills = (float)($stmtUnpaid->fetch()['total'] ?? 0);
 
 include __DIR__ . '/../includes/header.php';
 ?>

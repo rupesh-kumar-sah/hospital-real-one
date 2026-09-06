@@ -11,27 +11,46 @@ $breadcrumbs = [['label' => 'Dashboard']];
 
 $db = getDB();
 $todayDate = date('Y-m-d');
+$nextDate = date('Y-m-d', strtotime('+1 day'));
 
 // Pending online appointment applications
-$pendingApprovalCount = $db->query("SELECT COUNT(*) as c FROM appointments WHERE status = 'pending_approval'")->fetch()['c'];
+$stmtPendingApp = $db->query("SELECT COUNT(*) as c FROM appointments WHERE status = 'pending_approval'")->fetch();
+$pendingApprovalCount = (int)($stmtPendingApp['c'] ?? 0);
 
-// Today's appointments
-$todayAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE appointment_date = '{$todayDate}' OR appointment_date = DATE('now') OR appointment_date = DATE('now', 'localtime')")->fetch()['c'];
-$scheduledAppts = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status IN ('scheduled', 'pending_approval')")->fetch()['c'];
-$checkedIn = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'checked_in'")->fetch()['c'];
-$completedToday = $db->query("SELECT COUNT(*) as c FROM appointments WHERE (appointment_date = '{$todayDate}' OR appointment_date = DATE('now')) AND status = 'completed'")->fetch()['c'];
+// Today's appointment stats in a single consolidated query (1 DB trip instead of 4)
+$stmtApptStats = $db->prepare("
+    SELECT 
+        COUNT(*) as total_today,
+        SUM(CASE WHEN status IN ('scheduled', 'pending_approval') THEN 1 ELSE 0 END) as scheduled_count,
+        SUM(CASE WHEN status = 'checked_in' THEN 1 ELSE 0 END) as checked_in_count,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
+    FROM appointments 
+    WHERE appointment_date = ?
+");
+$stmtApptStats->execute([$todayDate]);
+$apptStats = $stmtApptStats->fetch() ?: [];
+$todayAppts = (int)($apptStats['total_today'] ?? 0);
+$scheduledAppts = (int)($apptStats['scheduled_count'] ?? 0);
+$checkedIn = (int)($apptStats['checked_in_count'] ?? 0);
+$completedToday = (int)($apptStats['completed_count'] ?? 0);
 
-// New patients today
-$newPatients = $db->query("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at) = '{$todayDate}' OR DATE(created_at) = DATE('now')")->fetch()['c'];
+// New patients today — SARGable range condition to use created_at index
+$stmtNewPts = $db->prepare("SELECT COUNT(*) as c FROM patients WHERE created_at >= ? AND created_at < ?");
+$stmtNewPts->execute([$todayDate, $nextDate]);
+$newPatients = (int)($stmtNewPts->fetch()['c'] ?? 0);
 
 // Total registered patients
-$totalPatients = $db->query("SELECT COUNT(*) as c FROM patients")->fetch()['c'];
+$stmtTotPts = $db->query("SELECT COUNT(*) as c FROM patients")->fetch();
+$totalPatients = (int)($stmtTotPts['c'] ?? 0);
 
 // Pending bills
-$pendingBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_status = 'unpaid'")->fetch()['c'];
+$stmtPendBills = $db->query("SELECT COUNT(*) as c FROM billing WHERE payment_status = 'unpaid'")->fetch();
+$pendingBills = (int)($stmtPendBills['c'] ?? 0);
 
-// Today's revenue
-$todayRevenue = $db->query("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE (DATE(created_at) = '{$todayDate}' OR DATE(created_at) = DATE('now')) AND payment_status = 'paid'")->fetch()['total'];
+// Today's revenue — SARGable range condition to use created_at index
+$stmtRevToday = $db->prepare("SELECT COALESCE(SUM(net_amount), 0) as total FROM billing WHERE created_at >= ? AND created_at < ? AND payment_status = 'paid'");
+$stmtRevToday->execute([$todayDate, $nextDate]);
+$todayRevenue = (float)($stmtRevToday->fetch()['total'] ?? 0);
 
 // All upcoming & online pending appointments
 $upcomingAppts = $db->query("
@@ -47,17 +66,20 @@ $upcomingAppts = $db->query("
     LIMIT 20
 ")->fetchAll();
 
-// Available doctors today
-$availableDoctors = $db->query("
+// Available doctors today — Parameterized $todayDate instead of SQLite DATE('now')
+$stmtAvailDocs = $db->prepare("
     SELECT d.id, u.full_name, dep.name as dept_name, d.consultation_fee,
-           (SELECT COUNT(*) FROM appointments WHERE doctor_id = d.id AND appointment_date = DATE('now') AND status IN ('scheduled','checked_in','in_progress')) as today_count,
+           (SELECT COUNT(*) FROM appointments WHERE doctor_id = d.id AND appointment_date = ? AND status IN ('scheduled','checked_in','in_progress')) as today_count,
            d.max_patients_per_day
     FROM doctors d
     JOIN users u ON d.user_id = u.id
     LEFT JOIN departments dep ON d.department_id = dep.id
     WHERE u.status = 'active'
     ORDER BY u.full_name
-")->fetchAll();
+");
+$stmtAvailDocs->execute([$todayDate]);
+$availableDoctors = $stmtAvailDocs->fetchAll();
+
 
 include __DIR__ . '/../includes/header.php';
 ?>

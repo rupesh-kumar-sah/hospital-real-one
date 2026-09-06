@@ -95,6 +95,36 @@ function logAudit(string $action, string $tableName = '', int $recordId = 0, str
 }
 
 /**
+ * Require valid CSRF token on POST requests
+ */
+function requireCSRF(): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        if (!verifyCSRFToken($token)) {
+            http_response_code(403);
+            setFlash('error', 'Invalid or expired security token. Please try again.');
+            header('Location: ' . ($_SERVER['REQUEST_URI'] ?? '/'));
+            exit;
+        }
+    }
+}
+
+/**
+ * Enforce patient ownership for patient role (prevents IDOR)
+ */
+function requirePatientOwnership(int $patientId): void {
+    if (getUserRole() === 'patient') {
+        $patient = getPatientByUserId(getUserId());
+        if (!$patient || (int)$patient['id'] !== $patientId) {
+            http_response_code(403);
+            setFlash('error', 'Access denied. You can only view your own records.');
+            header('Location: /patient/dashboard.php');
+            exit;
+        }
+    }
+}
+
+/**
  * Create a notification for a user
  */
 function createNotification(int $userId, string $title, string $message, string $type = 'info', string $link = ''): void {
@@ -107,3 +137,4 @@ function createNotification(int $userId, string $title, string $message, string 
         error_log('Notification error: ' . $e->getMessage());
     }
 }
+

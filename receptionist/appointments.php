@@ -23,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token = generateToken($doctorId, $date);
         
         // Get doctor dept & user_id
-        $doc = $db->query("SELECT user_id, department_id FROM doctors WHERE id = {$doctorId}")->fetch();
+        $stmtDoc = $db->prepare("SELECT user_id, department_id FROM doctors WHERE id = ?");
+        $stmtDoc->execute([$doctorId]);
+        $doc = $stmtDoc->fetch();
         $deptId = $doc['department_id'] ?? null;
 
         $stmt = $db->prepare("INSERT INTO appointments (patient_id, doctor_id, department_id, appointment_date, appointment_time, token_number, status, reason, created_by) VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)");
@@ -36,9 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Notify Patient
-        $patientUser = $db->query("SELECT user_id FROM patients WHERE id = {$patientId}")->fetch();
-        if ($patientUser) {
-            createNotification($patientUser['user_id'], 'Appointment Confirmed', "Your OPD appointment with Dr. " . getUserName() . " is confirmed for {$date}. Token: #{$token}", 'appointment');
+        $stmtPU = $db->prepare("SELECT user_id FROM patients WHERE id = ?");
+        $stmtPU->execute([$patientId]);
+        $patientUser = $stmtPU->fetch();
+        if ($patientUser && !empty($patientUser['user_id'])) {
+            createNotification($patientUser['user_id'], 'Appointment Confirmed', "Your OPD appointment is confirmed for {$date}. Token: #{$token}", 'appointment');
         }
 
         logAudit('create', 'appointments', $apptId, "Booked appointment token #{$token} for patient #{$patientId}");

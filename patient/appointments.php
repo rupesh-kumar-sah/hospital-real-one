@@ -13,15 +13,17 @@ $db = getDB();
 $patient = getPatientByUserId(getUserId());
 $patientId = $patient['id'] ?? 0;
 
-$appointments = $db->query("
+$stmtAppt = $db->prepare("
     SELECT a.*, u_d.full_name as doctor_name, dep.name as dept_name
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
     LEFT JOIN departments dep ON a.department_id = dep.id
-    WHERE a.patient_id = {$patientId}
+    WHERE a.patient_id = ?
     ORDER BY a.appointment_date DESC, a.appointment_time DESC
-")->fetchAll();
+");
+$stmtAppt->execute([$patientId]);
+$appointments = $stmtAppt->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

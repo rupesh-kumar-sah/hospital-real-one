@@ -24,7 +24,7 @@ $todayQueue = $db->prepare("
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN users u_p ON p.user_id = u_p.id
-    WHERE {$whereDoc} (a.appointment_date = ? OR a.appointment_date = DATE('now', 'localtime')) AND a.status IN ('scheduled','checked_in','in_progress')
+    WHERE {$whereDoc} a.appointment_date = ? AND a.status IN ('scheduled','checked_in','in_progress')
     ORDER BY a.token_number ASC
 ");
 $todayQueue->execute($queueParams);
@@ -33,24 +33,28 @@ $queue = $todayQueue->fetchAll();
 // Today's completed
 $whereDocComp = $doctorId > 0 ? "doctor_id = ? AND" : "";
 $compParams = $doctorId > 0 ? [$doctorId, $todayDate] : [$todayDate];
-$completedToday = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE {$whereDocComp} (appointment_date = ? OR appointment_date = DATE('now', 'localtime')) AND status = 'completed'");
+$completedToday = $db->prepare("SELECT COUNT(*) as c FROM appointments WHERE {$whereDocComp} appointment_date = ? AND status = 'completed'");
 $completedToday->execute($compParams);
-$completed = $completedToday->fetch()['c'];
+$completedRes = $completedToday->fetch();
+$completed = (int)($completedRes['c'] ?? 0);
 
 // Total patients seen (all time)
 $totalPatients = $db->prepare("SELECT COUNT(DISTINCT patient_id) as c FROM appointments WHERE doctor_id = ? AND status = 'completed'");
 $totalPatients->execute([$doctorId]);
-$totalPts = $totalPatients->fetch()['c'];
+$totalPatientsRes = $totalPatients->fetch();
+$totalPts = (int)($totalPatientsRes['c'] ?? 0);
 
 // Active admissions under this doctor
 $activeAdmissions = $db->prepare("SELECT COUNT(*) as c FROM admissions WHERE doctor_id = ? AND status = 'admitted'");
 $activeAdmissions->execute([$doctorId]);
-$admissions = $activeAdmissions->fetch()['c'];
+$activeAdmissionsRes = $activeAdmissions->fetch();
+$admissions = (int)($activeAdmissionsRes['c'] ?? 0);
 
 // Pending lab results
 $pendingLabs = $db->prepare("SELECT COUNT(*) as c FROM lab_orders WHERE doctor_id = ? AND status IN ('ordered','sample_collected','processing')");
 $pendingLabs->execute([$doctorId]);
-$pendingLabCount = $pendingLabs->fetch()['c'];
+$pendingLabsRes = $pendingLabs->fetch();
+$pendingLabCount = (int)($pendingLabsRes['c'] ?? 0);
 
 // Recent completed lab results
 $recentResults = $db->prepare("
@@ -248,7 +252,9 @@ include __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                 <?php foreach ($doctorPatientRx as $rx): ?>
                 <?php
-                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $stmtItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+                $stmtItems->execute([$rx['id']]);
+                $items = $stmtItems->fetchAll();
                 $rxTotal = 0;
                 foreach ($items as $it) {
                     $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");

@@ -66,11 +66,12 @@ function formatDateTime(?string $datetime): string {
  */
 function generateUHID(): string {
     $db = getDB();
-    $stmt = $db->query("SELECT MAX(CAST(REPLACE(uhid, '" . UHID_PREFIX . "', '') AS INTEGER)) as max_id FROM patients");
+    $stmt = $db->query("SELECT MAX(id) as max_id FROM patients");
     $result = $stmt->fetch();
-    $nextId = ($result['max_id'] ?? 0) + 1;
+    $nextId = (int)($result['max_id'] ?? 0) + 1;
     return UHID_PREFIX . str_pad($nextId, 5, '0', STR_PAD_LEFT);
 }
+
 
 /**
  * Generate invoice number

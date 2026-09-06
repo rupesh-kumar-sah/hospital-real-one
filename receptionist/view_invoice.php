@@ -35,35 +35,14 @@ if ($billId) {
     $bill = $stmt->fetch();
 }
 
-if (!$bill && $patientId) {
-    // If no bill exists yet, fetch patient data to display draft estimate
-    $stmtP = $db->prepare("
-        SELECT p.id as patient_id, p.uhid, p.blood_group, p.address, u_p.full_name as patient_name, u_p.phone as patient_phone
-        FROM patients p
-        JOIN users u_p ON p.user_id = u_p.id
-        WHERE p.id = ?
-    ");
-    $stmtP->execute([$patientId]);
-    $pData = $stmtP->fetch();
-    if ($pData) {
-        $bill = [
-            'id' => 0,
-            'invoice_number' => 'ESTIMATE-PAT-' . $pData['patient_id'],
-            'patient_name' => $pData['patient_name'],
-            'uhid' => $pData['uhid'],
-            'patient_phone' => $pData['patient_phone'],
-            'subtotal' => 0,
-            'discount' => 0,
-            'net_amount' => 0,
-            'payment_status' => 'unpaid',
-            'payment_method' => 'Cash',
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-    }
+if (!$bill) {
+    // Invoice not found
+} else if (isset($bill['patient_id'])) {
+    requirePatientOwnership((int)$bill['patient_id']);
 }
 
 $pageTitle = 'Patient Invoice & Bill Details';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/receptionist/dashboard.php'], ['label' => 'Invoice Details']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => (getUserRole() === 'patient' ? '/patient/dashboard.php' : '/receptionist/dashboard.php')], ['label' => 'Invoice Details']];
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -81,18 +60,23 @@ include __DIR__ . '/../includes/header.php';
 // Fetch line items
 $items = [];
 if (!empty($bill['id'])) {
-    $items = $db->query("SELECT * FROM billing_items WHERE bill_id = {$bill['id']}")->fetchAll();
+    $stmtItems = $db->prepare("SELECT * FROM billing_items WHERE bill_id = ?");
+    $stmtItems->execute([$bill['id']]);
+    $items = $stmtItems->fetchAll();
 }
 
 // Fetch doctor prescriptions & medicine itemization for this patient
-$prescriptions = $db->query("
+$targetPatientId = $bill['patient_id'] ?? $patientId;
+$stmtRx = $db->prepare("
     SELECT pr.*, u_d.full_name as doctor_name
     FROM prescriptions pr
     JOIN doctors d ON pr.doctor_id = d.id
     JOIN users u_d ON d.user_id = u_d.id
-    WHERE pr.patient_id = " . ($bill['patient_id'] ?? $patientId) . "
+    WHERE pr.patient_id = ?
     ORDER BY pr.created_at DESC
-")->fetchAll();
+");
+$stmtRx->execute([$targetPatientId]);
+$prescriptions = $stmtRx->fetchAll();
 
 $paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'active'")->fetchAll();
 ?>
@@ -167,9 +151,15 @@ $paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'acti
                 <?php endif; ?>
 
                 <!-- Detailed Doctor Prescribed Medicines Breakdown -->
+                <?php 
+                $invCache = [];
+                $invStmt = $db->prepare("SELECT selling_price FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
+                $stmtRxItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+                ?>
                 <?php foreach ($prescriptions as $rx): ?>
                 <?php
-                $rxItems = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $stmtRxItems->execute([$rx['id']]);
+                $rxItems = $stmtRxItems->fetchAll();
                 $rxGrand = 0;
                 ?>
                 <tr style="background: #f0f9ff; border-top: 2px solid #0284c7; border-bottom: 1px solid #bae6fd;">
@@ -179,14 +169,18 @@ $paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'acti
                 </tr>
                 <?php foreach ($rxItems as $m): ?>
                 <?php
-                $invStmt = $db->prepare("SELECT * FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
-                $invStmt->execute(['%' . $m['drug_name'] . '%']);
-                $inv = $invStmt->fetch();
-                $unitP = $inv ? (float)$inv['selling_price'] : 10.00;
+                $drugKey = trim($m['drug_name']);
+                if (!isset($invCache[$drugKey])) {
+                    $invStmt->execute(['%' . $drugKey . '%']);
+                    $inv = $invStmt->fetch();
+                    $invCache[$drugKey] = $inv ? (float)$inv['selling_price'] : 10.00;
+                }
+                $unitP = $invCache[$drugKey];
                 $mQty = max(1, (int)($m['quantity'] ?: 10));
                 $sub = $unitP * $mQty;
                 $rxGrand += $sub;
                 ?>
+
                 <tr style="border-bottom: 1px dashed #cbd5e1; background: #fafafa;">
                     <td style="padding: 8px 10px 8px 24px;">
                         <strong><?= sanitize($m['drug_name']) ?></strong> (<?= sanitize($m['dosage']) ?>)
@@ -203,12 +197,12 @@ $paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'acti
 
         <!-- Hospital Official QR Code Payment Box -->
         <?php
-        $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image != '' LIMIT 1")->fetch();
+        $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image IS NOT NULL AND qr_image != '' LIMIT 1")->fetch();
         ?>
         <?php if ($activePM && !empty($activePM['qr_image'])): ?>
         <div style="background: #f8fafc; border: 1px dashed #2563eb; border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 16px;">
-                <img src="<?= $activePM['qr_image'] ?>" alt="Hospital Payment QR Code" style="width: 110px; height: 110px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; padding: 4px;">
+                <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" alt="Hospital Payment QR Code" style="width: 110px; height: 110px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; padding: 4px;">
                 <div>
                     <span class="badge" style="background: #16a34a; color: #fff; font-weight: 700; font-size: 0.75rem;">SCAN & PAY MOBILE QR</span>
                     <h4 style="margin: 6px 0 2px 0; color: #0f172a; font-size: 1rem; font-weight: 700;"><?= sanitize($activePM['name']) ?> Hospital QR Code</h4>

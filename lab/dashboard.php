@@ -11,9 +11,23 @@ $breadcrumbs = [['label' => 'Dashboard']];
 
 $db = getDB();
 
-$pendingCount = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status = 'ordered'")->fetch()['c'];
-$processingCount = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('sample_collected','processing')")->fetch()['c'];
-$completedToday = $db->query("SELECT COUNT(*) as c FROM lab_orders WHERE status = 'completed' AND DATE(ordered_at) = DATE('now')")->fetch()['c'];
+$todayDate = date('Y-m-d');
+$nextDate = date('Y-m-d', strtotime('+1 day'));
+
+// Consolidate lab order statistics in a single aggregated query with SARGable date range
+$stmtStats = $db->prepare("
+    SELECT 
+        SUM(CASE WHEN status = 'ordered' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN status IN ('sample_collected','processing') THEN 1 ELSE 0 END) as processing_count,
+        SUM(CASE WHEN status = 'completed' AND ordered_at >= ? AND ordered_at < ? THEN 1 ELSE 0 END) as completed_today
+    FROM lab_orders
+");
+$stmtStats->execute([$todayDate, $nextDate]);
+$stats = $stmtStats->fetch() ?: [];
+$pendingCount = (int)($stats['pending_count'] ?? 0);
+$processingCount = (int)($stats['processing_count'] ?? 0);
+$completedToday = (int)($stats['completed_today'] ?? 0);
+
 
 $orders = $db->query("
     SELECT lo.*, lc.test_name, lc.category, p.uhid, u_p.full_name as patient_name, u_d.full_name as doctor_name

@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/functions.php';
 header('Content-Type: application/json');
 
 if (!isLoggedIn()) {
+    http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
@@ -39,9 +40,9 @@ switch ($action) {
         break;
         
     case 'recent':
-        $limit = min((int)($_GET['limit'] ?? 5), 20);
-        $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?");
-        $stmt->execute([getUserId(), $limit]);
+        $limit = max(1, min((int)($_GET['limit'] ?? 5), 20));
+        $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT " . $limit);
+        $stmt->execute([getUserId()]);
         echo json_encode($stmt->fetchAll());
         break;
         

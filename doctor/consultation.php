@@ -79,8 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Notify patient
-        $patientUser = $db->query("SELECT user_id FROM patients WHERE id = {$pId}")->fetch();
-        if ($patientUser) {
+        $stmtPU = $db->prepare("SELECT user_id FROM patients WHERE id = ?");
+        $stmtPU->execute([$pId]);
+        $patientUser = $stmtPU->fetch();
+        if ($patientUser && !empty($patientUser['user_id'])) {
             createNotification($patientUser['user_id'], 'Consultation Completed', "Dr. " . getUserName() . " completed your consultation. Diagnosis: {$diagnosis}", 'info');
         }
 

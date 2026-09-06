@@ -10,7 +10,7 @@ date_default_timezone_set('Asia/Kathmandu');
 define('APP_NAME', 'MediCare HMS');
 define('APP_VERSION', '1.0.0');
 define('APP_TAGLINE', 'Hospital Management System');
-define('APP_BASE_URL', 'http://localhost:9000');
+define('APP_BASE_URL', getenv('APP_URL') ?: 'http://localhost:9000');
 
 // Roles
 define('ROLE_ADMIN', 'admin');

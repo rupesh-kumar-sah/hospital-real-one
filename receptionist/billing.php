@@ -37,8 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Notify patient
-        $patientUser = $db->query("SELECT user_id FROM patients WHERE id = {$patientId}")->fetch();
-        if ($patientUser) {
+        $stmtPU = $db->prepare("SELECT user_id FROM patients WHERE id = ?");
+        $stmtPU->execute([$patientId]);
+        $patientUser = $stmtPU->fetch();
+        if ($patientUser && !empty($patientUser['user_id'])) {
             createNotification($patientUser['user_id'], 'Invoice Issued', "Receipt {$invNum} generated for Rs. {$netAmount} ({$paymentMethod}).", 'billing');
         }
 
@@ -160,7 +162,7 @@ include __DIR__ . '/../includes/header.php';
                         <label class="form-label">Payment Method <span class="required">*</span></label>
                         <select name="payment_method" id="paymentMethodSelect" class="form-control" required onchange="showQRPreview(this.value)">
                             <?php foreach ($paymentMethods as $pm): ?>
-                            <option value="<?= sanitize($pm['name']) ?>" data-qr="<?= sanitize($pm['qr_image']) ?>" data-acc="<?= sanitize($pm['account_name'] . ' - ' . $pm['account_number']) ?>" data-inst="<?= sanitize($pm['instructions']) ?>">
+                            <option value="<?= sanitize($pm['name']) ?>" data-qr="<?= htmlspecialchars($pm['qr_image'] ?? '', ENT_QUOTES, 'UTF-8') ?>" data-acc="<?= sanitize($pm['account_name'] . ' - ' . $pm['account_number']) ?>" data-inst="<?= sanitize($pm['instructions']) ?>">
                                 <?= sanitize($pm['name']) ?>
                             </option>
                             <?php endforeach; ?>

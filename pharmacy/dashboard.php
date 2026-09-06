@@ -11,13 +11,25 @@ $breadcrumbs = [['label' => 'Dashboard']];
 
 $db = getDB();
 
+$todayDate = date('Y-m-d');
+$nextDate = date('Y-m-d', strtotime('+1 day'));
+
 // Pending prescriptions count
-$pendingRx = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'pending'")->fetch()['c'];
-$dispensedToday = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'dispensed' AND DATE(created_at) = DATE('now')")->fetch()['c'];
+$stmtPendingRx = $db->query("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'pending'")->fetch();
+$pendingRx = (int)($stmtPendingRx['c'] ?? 0);
+
+// Dispensed today — SARGable range query to utilize created_at index
+$stmtDispToday = $db->prepare("SELECT COUNT(*) as c FROM prescriptions WHERE status = 'dispensed' AND created_at >= ? AND created_at < ?");
+$stmtDispToday->execute([$todayDate, $nextDate]);
+$dispensedToday = (int)($stmtDispToday->fetch()['c'] ?? 0);
+
 
 // Stock stats
-$totalDrugs = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE status = 'active'")->fetch()['c'];
-$lowStockCount = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch()['c'];
+$stmtTotalDrugs = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE status = 'active'")->fetch();
+$totalDrugs = (int)($stmtTotalDrugs['c'] ?? 0);
+
+$stmtLowStock = $db->query("SELECT COUNT(*) as c FROM pharmacy_inventory WHERE stock_quantity <= reorder_level AND status = 'active'")->fetch();
+$lowStockCount = (int)($stmtLowStock['c'] ?? 0);
 
 // Pending RX list
 $pendingList = $db->query("
