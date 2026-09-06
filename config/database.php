@@ -83,7 +83,30 @@ function getDB(): PDO {
             }
         }
         
-        // SQLite Driver / Fallback Mode
+        // PostgreSQL support
+if ($driver === 'pgsql') {
+    // Build DSN for PostgreSQL
+    $dsn = sprintf(
+        'pgsql:host=%s;port=%s;dbname=%s',
+        DB_HOST,
+        DB_PORT,
+        DB_NAME
+    );
+
+    // PDO options for PostgreSQL
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+        // Optional: enforce UTF‑8 encoding
+        PDO::PGSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'"
+    ];
+
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+    return $pdo;
+}
+
+// SQLite Driver / Fallback Mode
         try {
             $dbDir = dirname(DB_PATH);
             if (!is_dir($dbDir)) {
