@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? 'add';
     if ($action === 'delete_service') {
         $id = (int)($_POST['service_id'] ?? 0);
@@ -74,7 +75,8 @@ include __DIR__ . '/../includes/header.php';
                     <td class="font-bold text-success"><?= formatCurrency($s['price']) ?></td>
                     <td><?= sanitize($s['description'] ?: '-') ?></td>
                     <td>
-                        <form method="POST" inline style="display:inline;" onsubmit="return confirm('Delete tariff item <?= sanitize($s['service_name']) ?>?');">
+                        <form method="POST" inline style="display:inline;" onsubmit="return confirm('Delete tariff item <?= sanitize($s['service_name']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">?');">
                             <input type="hidden" name="action" value="delete_service">
                             <input type="hidden" name="service_id" value="<?= $s['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>
@@ -94,6 +96,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('addServiceModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">

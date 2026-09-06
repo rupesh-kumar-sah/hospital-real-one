@@ -16,6 +16,7 @@ $nurse = getNurseByUserId(getUserId());
 $nurseId = $nurse['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $admissionId = (int)($_POST['admission_id'] ?? 0);
     $note = trim((string)($_POST['note'] ?? ''));
     $priority = $_POST['priority'] ?? 'normal';
@@ -84,6 +85,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('addNoteModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Admitted Patient <span class="required">*</span></label>

@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/doctor/dashboard.php'], ['la
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $admissionId = (int)($_POST['admission_id'] ?? 0);
     $summary = trim((string)($_POST['discharge_summary'] ?? ''));
 
@@ -61,6 +62,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 650px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label">Select Admitted Patient <span class="required">*</span></label>
                 <select name="admission_id" class="form-control" required>

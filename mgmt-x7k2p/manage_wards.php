@@ -18,6 +18,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => $dashUrl], ['label' => 'Wards 
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? '';
     if ($action === 'add_bed') {
         $wardId = (int)($_POST['ward_id'] ?? 0);
@@ -116,6 +117,7 @@ include __DIR__ . '/../includes/header.php';
                     <td>
                         <div class="d-flex gap-8 align-center">
                             <form method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                                 <input type="hidden" name="action" value="update_bed_status">
                                 <input type="hidden" name="bed_id" value="<?= $b['id'] ?>">
                                 <select name="status" class="form-control form-control-sm" style="width: 140px; display: inline-block;" onchange="this.form.submit()">
@@ -126,7 +128,8 @@ include __DIR__ . '/../includes/header.php';
                                 </select>
                             </form>
 
-                            <form method="POST" style="display:inline;" onsubmit="return confirm('Delete Bed <?= sanitize($b['bed_number']) ?>?');">
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Delete Bed <?= sanitize($b['bed_number']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">?');">
                                 <input type="hidden" name="action" value="delete_bed">
                                 <input type="hidden" name="bed_id" value="<?= $b['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>
@@ -147,6 +150,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('addBedModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <input type="hidden" name="action" value="add_bed">
                 <div class="form-group">

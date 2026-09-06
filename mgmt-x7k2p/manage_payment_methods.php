@@ -15,6 +15,7 @@ $db = getDB();
 
 // Handle Create / Edit / Delete Payment Method
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'save_payment_method') {
@@ -148,6 +149,7 @@ include __DIR__ . '/../includes/header.php';
                         </button>
 
                         <form method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                             <input type="hidden" name="action" value="toggle_status">
                             <input type="hidden" name="method_id" value="<?= $m['id'] ?>">
                             <input type="hidden" name="status" value="<?= $m['status'] ?>">
@@ -156,7 +158,8 @@ include __DIR__ . '/../includes/header.php';
                             </button>
                         </form>
 
-                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete payment option <?= sanitize($m['name']) ?>?');">
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete payment option <?= sanitize($m['name']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">?');">
                             <input type="hidden" name="action" value="delete_method">
                             <input type="hidden" name="method_id" value="<?= $m['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>
@@ -177,6 +180,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('paymentModal')">×</button>
         </div>
         <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <input type="hidden" name="action" value="save_payment_method">
                 <input type="hidden" name="method_id" id="method_id" value="0">

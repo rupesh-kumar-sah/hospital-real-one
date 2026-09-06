@@ -32,3 +32,10 @@ vendor/
 # Local bat files that expose tunnel/local credentials
 run_nepal_hospital.bat
 setup_mysql_tunnel.bat
+
+# Development scratch & audit tooling (not production code)
+scratch/
+*.bak
+
+# original uncompressed image backups (kept locally only)
+assets/images/_originals/

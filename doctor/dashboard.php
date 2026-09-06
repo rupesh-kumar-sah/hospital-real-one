@@ -74,16 +74,18 @@ $recentResults->execute([$doctorId]);
 $labResults = $recentResults->fetchAll();
 
 // Doctor's Patient Prescriptions & Dispensed Medicine Bills
-$whereDocRx = $doctorId > 0 ? "WHERE pr.doctor_id = {$doctorId}" : "";
-$doctorPatientRx = $db->query("
+$rxWhere = $doctorId > 0 ? "WHERE pr.doctor_id = ?" : "";
+$doctorPatientRx = $db->prepare("
     SELECT pr.*, p.id as patient_db_id, p.uhid, u_p.full_name as patient_name
     FROM prescriptions pr
     JOIN patients p ON pr.patient_id = p.id
     JOIN users u_p ON p.user_id = u_p.id
-    {$whereDocRx}
+    {$rxWhere}
     ORDER BY pr.created_at DESC
     LIMIT 5
-")->fetchAll();
+");
+$doctorPatientRx->execute($doctorId > 0 ? [(int)$doctorId] : []);
+$doctorPatientRx = $doctorPatientRx->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

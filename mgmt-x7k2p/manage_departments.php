@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? '';
     if ($action === 'add_department') {
         $name = trim($_POST['name'] ?? '');
@@ -82,6 +83,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <div class="d-flex gap-8 justify-end">
                 <form method="POST" inline style="display:inline;">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <input type="hidden" name="action" value="toggle_status">
                     <input type="hidden" name="department_id" value="<?= $dept['id'] ?>">
                     <input type="hidden" name="status" value="<?= $dept['status'] ?>">
@@ -90,7 +92,8 @@ include __DIR__ . '/../includes/header.php';
                     </button>
                 </form>
 
-                <form method="POST" inline style="display:inline;" onsubmit="return confirm('Delete department <?= sanitize($dept['name']) ?>?');">
+                <form method="POST" inline style="display:inline;" onsubmit="return confirm('Delete department <?= sanitize($dept['name']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">?');">
                     <input type="hidden" name="action" value="delete_department">
                     <input type="hidden" name="department_id" value="<?= $dept['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>
@@ -108,6 +111,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('addDeptModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <input type="hidden" name="action" value="add_department">
                 <div class="form-group">

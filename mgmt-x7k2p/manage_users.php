@@ -6,6 +6,7 @@ checkIPAllowlist('admin');
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
+require_once __DIR__ . '/../includes/refcache.php';
 requireRole('admin');
 
 $pageTitle = 'Manage Users';
@@ -130,7 +131,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $pagination = paginate($query, $params, $page, 15);
 $users = $pagination['data'];
 
-$departments = $db->query("SELECT * FROM departments WHERE status = 'active'")->fetchAll();
+$departments = cached_departments();
 $temporaryPasswordNotice = $_SESSION['temporary_password_notice'] ?? null;
 unset($_SESSION['temporary_password_notice']);
 

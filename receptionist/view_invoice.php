@@ -6,6 +6,7 @@ checkIPAllowlist('staff');
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
+require_once __DIR__ . '/../includes/refcache.php';
 requireRole(['receptionist', 'pharmacist', 'doctor', 'admin', 'patient']);
 
 $db = getDB();
@@ -80,7 +81,7 @@ $stmtRx = $db->prepare("
 $stmtRx->execute([$targetPatientId]);
 $prescriptions = $stmtRx->fetchAll();
 
-$paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'active'")->fetchAll();
+$paymentMethods = cached_payment_methods();
 ?>
 
 <div style="max-width: 900px; margin: 0 auto;">

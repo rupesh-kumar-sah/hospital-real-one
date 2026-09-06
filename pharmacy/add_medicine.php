@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/pharmacy/dashboard.php'], ['
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $name = trim((string)($_POST['drug_name'] ?? ''));
     $generic = trim((string)($_POST['generic_name'] ?? ''));
     $cat = $_POST['category'] ?? '';
@@ -46,6 +47,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 650px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Brand / Drug Name <span class="required">*</span></label>

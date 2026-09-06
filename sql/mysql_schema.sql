@@ -452,3 +452,7 @@ CREATE INDEX idx_lab_catalog_status_category_name ON lab_test_catalog(status, ca
 CREATE INDEX idx_service_pricing_status_category_name ON service_pricing(status, category, service_name);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Audit log hot-path indexes (admin audit page: ORDER BY created_at DESC, filter by action)
+CREATE INDEX idx_audit_logs_created ON audit_logs (created_at);
+CREATE INDEX idx_audit_logs_action_created ON audit_logs (action, created_at);

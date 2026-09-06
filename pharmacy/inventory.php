@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/pharmacy/dashboard.php'], ['
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? '';
     if ($action === 'delete_drug') {
         $drugId = (int)$_POST['drug_id'];
@@ -79,7 +80,8 @@ include __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td>
-                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete <?= sanitize($d['drug_name']) ?> from inventory?');">
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete <?= sanitize($d['drug_name']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>"> from inventory?');">
                             <input type="hidden" name="action" value="delete_drug">
                             <input type="hidden" name="drug_id" value="<?= $d['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>

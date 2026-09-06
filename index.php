@@ -8,6 +8,7 @@ require_once __DIR__ . '/config/session.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/constants.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/refcache.php';
 require_once __DIR__ . '/includes/auth_middleware.php';
 require_once __DIR__ . '/config/security.php';
 
@@ -230,8 +231,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $bookingError = "Please select a Doctor, Date, and ensure Patient information is complete.";
     }
 }
-}
-}
 
 // -------------------------------------------------------------
 // 4. FETCH DATA FOR PATIENT PROFILE & FRONTEND
@@ -248,45 +247,51 @@ if (isLoggedIn() && getUserRole() === 'patient') {
         $pId = (int)$patientProfile['id'];
 
         // My Appointments
-        $myAppointments = $db->query("
+        $stmtAppts = $db->prepare("
             SELECT a.*, u_d.full_name as doctor_name, dep.name as dept_name
             FROM appointments a
             JOIN doctors d ON a.doctor_id = d.id
             JOIN users u_d ON d.user_id = u_d.id
             LEFT JOIN departments dep ON a.department_id = dep.id
-            WHERE a.patient_id = {$pId}
+            WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC, a.appointment_time DESC
-        ")->fetchAll();
+        ");
+        $stmtAppts->execute([$pId]);
+        $myAppointments = $stmtAppts->fetchAll();
 
         // My Prescriptions
-        $myPrescriptions = $db->query("
+        $stmtRx = $db->prepare("
             SELECT pr.*, u_d.full_name as doctor_name
             FROM prescriptions pr
             JOIN doctors d ON pr.doctor_id = d.id
             JOIN users u_d ON d.user_id = u_d.id
-            WHERE pr.patient_id = {$pId}
+            WHERE pr.patient_id = ?
             ORDER BY pr.created_at DESC
-        ")->fetchAll();
+        ");
+        $stmtRx->execute([$pId]);
+        $myPrescriptions = $stmtRx->fetchAll();
 
         // My Lab Reports
-        $myLabReports = $db->query("
+        $stmtLab = $db->prepare("
             SELECT lo.*, u_d.full_name as doctor_name
             FROM lab_orders lo
             LEFT JOIN doctors d ON lo.doctor_id = d.id
             LEFT JOIN users u_d ON d.user_id = u_d.id
-            WHERE lo.patient_id = {$pId}
+            WHERE lo.patient_id = ?
             ORDER BY lo.ordered_at DESC
-        ")->fetchAll();
+        ");
+        $stmtLab->execute([$pId]);
+        $myLabReports = $stmtLab->fetchAll();
 
         // My Bills
-        $myBills = $db->query("
-            SELECT * FROM billing WHERE patient_id = {$pId} ORDER BY created_at DESC
-        ")->fetchAll();
+        $stmtBills = $db->prepare("SELECT * FROM billing WHERE patient_id = ? ORDER BY created_at DESC");
+        $stmtBills->execute([$pId]);
+        $myBills = $stmtBills->fetchAll();
     }
 }
 
 // Fetch active departments & doctors
-$departments = $db->query("SELECT * FROM departments WHERE status = 'active' ORDER BY name ASC")->fetchAll();
+$departments = cached_departments();
 $doctors = $db->query("
     SELECT d.id as doctor_id, d.specialization, d.consultation_fee, u.full_name as doctor_name, dep.id as dept_id, dep.name as dept_name
     FROM doctors d
@@ -430,7 +435,7 @@ $structuredData = [
         </div>
 
         <div class="hero-image-wrapper">
-            <img src="/assets/images/hospital_hero.jpg" alt="<?= sanitize(APP_NAME) ?> hospital care team" width="900" height="600">
+            <img src="/assets/images/hospital_hero.jpg" alt="<?= sanitize(APP_NAME) ?> hospital care team" width="900" height="600" fetchpriority="high" decoding="async">
             
             <div class="emergency-card-float">
                 <div style="width: 44px; height: 44px; background: #fee2e2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
@@ -482,7 +487,7 @@ $structuredData = [
             <?php if ($activePM && !empty($activePM['qr_image'])): ?>
             <div style="background: #ffffff; border: 1px dashed #16a34a; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" alt="Hospital Payment QR" style="width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" alt="Hospital Payment QR" loading="lazy" width="70" height="70" style="border-radius: 6px; border: 1px solid #e2e8f0;">
                     <div>
                         <div style="font-weight: 700; font-size: 0.85rem; color: #15803d;">Hospital Payment QR Code</div>
                         <div style="font-size: 0.75rem; color: #475569;">Scan with eSewa / Khalti / Mobile Banking to pay</div>

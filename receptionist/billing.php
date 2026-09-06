@@ -6,6 +6,7 @@ checkIPAllowlist('staff');
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
+require_once __DIR__ . '/../includes/refcache.php';
 requireRole(['receptionist', 'admin']);
 
 $pageTitle = 'Hospital Billing';
@@ -15,6 +16,7 @@ $db = getDB();
 
 // Handle Create Bill
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $patientId = (int)($_POST['patient_id'] ?? 0);
     $subtotal = (float)($_POST['subtotal'] ?? 0);
     $discount = (float)($_POST['discount'] ?? 0);
@@ -62,7 +64,7 @@ $bills = $db->query("
 ")->fetchAll();
 
 $patients = $db->query("SELECT p.id, p.uhid, u.full_name FROM patients p JOIN users u ON p.user_id = u.id ORDER BY u.full_name")->fetchAll();
-$paymentMethods = $db->query("SELECT * FROM payment_methods WHERE status = 'active' ORDER BY id ASC")->fetchAll();
+$paymentMethods = cached_payment_methods();
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -128,6 +130,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('createBillModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Patient <span class="required">*</span></label>

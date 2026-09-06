@@ -4,6 +4,7 @@
  * Handles JSON response serialization, CORS preflight, JWT Bearer Token validation, and RBAC enforcement.
  */
 
+require_once __DIR__ . '/../config/errors.php';
 require_once __DIR__ . '/../config/jwt.php';
 require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/functions.php';

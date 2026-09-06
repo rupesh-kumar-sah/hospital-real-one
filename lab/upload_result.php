@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/lab/dashboard.php'], ['label
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $orderId = (int)($_POST['lab_order_id'] ?? 0);
     $val = trim((string)($_POST['result_value'] ?? ''));
     $range = trim((string)($_POST['reference_range'] ?? ''));
@@ -78,6 +79,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 650px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label">Select Pending Lab Order <span class="required">*</span></label>
                 <select name="lab_order_id" class="form-control" required>

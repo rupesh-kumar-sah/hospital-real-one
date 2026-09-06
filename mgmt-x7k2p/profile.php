@@ -18,10 +18,18 @@ $currentUser = getCurrentUser();
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
+
     $fullName = trim((string)($_POST['full_name'] ?? ''));
     $phone = trim((string)($_POST['phone'] ?? ''));
     $email = trim((string)($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
+
+    if (!empty($password) && ($passwordError = passwordStrengthError($password)) !== null) {
+        setFlash('error', $passwordError);
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
 
     $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ?, email = ? WHERE id = ?");
     $stmt->execute([$fullName, $phone, $email, getUserId()]);
@@ -53,6 +61,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 600px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label">Full Name</label>
                 <input type="text" name="full_name" class="form-control" value="<?= sanitize($currentUser['full_name']) ?>" required>

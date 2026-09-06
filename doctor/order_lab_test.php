@@ -6,6 +6,7 @@ checkIPAllowlist('staff');
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
+require_once __DIR__ . '/../includes/refcache.php';
 requireRole(['doctor', 'admin']);
 
 $pageTitle = 'Order Lab Tests';
@@ -16,6 +17,7 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $patientId = (int)($_POST['patient_id'] ?? 0);
     $testIds = $_POST['test_ids'] ?? [];
     $priority = $_POST['priority'] ?? 'routine';
@@ -33,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $patients = $db->query("SELECT p.id, p.uhid, u.full_name FROM patients p JOIN users u ON p.user_id = u.id ORDER BY u.full_name")->fetchAll();
-$tests = $db->query("SELECT * FROM lab_test_catalog WHERE status = 'active' ORDER BY category, test_name")->fetchAll();
+$tests = cached_lab_catalog();
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -48,6 +50,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 700px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label">Select Patient <span class="required">*</span></label>
                 <select name="patient_id" class="form-control" required>

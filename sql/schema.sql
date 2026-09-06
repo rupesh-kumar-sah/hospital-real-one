@@ -600,3 +600,7 @@ CREATE INDEX IF NOT EXISTS idx_pharmacy_inv_status_stock ON pharmacy_inventory(s
 CREATE INDEX IF NOT EXISTS idx_lab_catalog_status_category_name ON lab_test_catalog(status, category, test_name);
 CREATE INDEX IF NOT EXISTS idx_service_pricing_status_category_name ON service_pricing(status, category, service_name);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash_exp ON refresh_tokens(token_hash, expires_at, revoked);
+
+-- Audit log hot-path indexes (admin audit page: ORDER BY created_at DESC, filter by action)
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);

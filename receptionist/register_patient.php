@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/receptionist/dashboard.php']
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $fullName = trim((string)($_POST['full_name'] ?? ''));
     $email = trim((string)($_POST['email'] ?? ''));
     $phone = trim((string)($_POST['phone'] ?? ''));
@@ -58,6 +59,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 800px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Full Name <span class="required">*</span></label>

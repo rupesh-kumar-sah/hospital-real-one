@@ -16,6 +16,7 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $patientId = (int)($_POST['patient_id'] ?? 0);
     $bedId = (int)($_POST['bed_id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? ''));
@@ -55,6 +56,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width: 650px;">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label">Select Patient <span class="required">*</span></label>
                 <select name="patient_id" class="form-control" required>

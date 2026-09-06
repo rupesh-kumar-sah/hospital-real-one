@@ -15,6 +15,7 @@ $db = getDB();
 
 // Handle New Appointment
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $patientId = (int)($_POST['patient_id'] ?? 0);
     $doctorId = (int)($_POST['doctor_id'] ?? 0);
     $date = $_POST['appointment_date'] ?? '';
@@ -186,6 +187,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('bookApptModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Select Patient <span class="required">*</span></label>

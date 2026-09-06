@@ -4,6 +4,8 @@
  * Implements HTTP Security Headers, Brute-Force Protection, CSP, and Anti-Exploit Rules.
  */
 
+require_once __DIR__ . '/errors.php';
+
 // =====================================================
 // 1. HTTP SECURITY & CORS HEADERS
 // =====================================================

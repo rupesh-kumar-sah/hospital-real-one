@@ -19,6 +19,9 @@ function requireLogin(): void {
         exit;
     }
     enforcePasswordChange();
+
+    // Central CSRF enforcement for every authenticated state-changing request.
+    requireCSRF();
 }
 
 /**

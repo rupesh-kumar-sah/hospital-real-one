@@ -14,6 +14,7 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/lab/dashboard.php'], ['label
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? 'add';
     if ($action === 'delete_test') {
         $testId = (int)($_POST['test_id'] ?? 0);
@@ -78,7 +79,8 @@ include __DIR__ . '/../includes/header.php';
                     <td><span class="text-xs text-muted"><?= sanitize($t['normal_range'] ?: '-') ?></span></td>
                     <td class="font-bold text-success">Rs. <?= $t['price'] ?></td>
                     <td>
-                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete lab test <?= sanitize($t['test_name']) ?>?');">
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete lab test <?= sanitize($t['test_name']) ?>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">?');">
                             <input type="hidden" name="action" value="delete_test">
                             <input type="hidden" name="test_id" value="<?= $t['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-can"></i> Delete</button>
@@ -98,6 +100,7 @@ include __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('addTestModal')">×</button>
         </div>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="modal-body">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">

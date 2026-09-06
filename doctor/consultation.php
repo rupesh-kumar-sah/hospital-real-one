@@ -36,6 +36,7 @@ if ($apptId) {
 
 // Handle Form Submission (Save Medical Record + Prescription)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $pId = (int)($_POST['patient_id'] ?? 0);
     $aId = (int)($_POST['appointment_id'] ?? 0);
     $diagnosis = trim((string)($_POST['diagnosis'] ?? ''));
@@ -116,6 +117,7 @@ include __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
     <div class="grid-2 mb-24">
         <!-- Medical Notes -->
         <div class="card">

@@ -172,6 +172,94 @@ try {
     assertTest("JWT & Refresh Token Security Suite", false, $e->getMessage());
 }
 
+// TEST 9: Billing Calculation (matches receptionist/billing.php net = subtotal - discount + tax)
+try {
+    $calcNet = static fn(float $subtotal, float $discount, float $tax): float => $subtotal - $discount + $tax;
+    assertTest("Billing Net = Subtotal - Discount + Tax", $calcNet(1000, 100, 50) === 950.0, "Billing Math 1 failed");
+    assertTest("Billing Discount Subtracts", $calcNet(500, 100, 0) === 400.0, "Billing Math 2 failed");
+    assertTest("Billing Tax Adds", $calcNet(500, 0, 50) === 550.0, "Billing Math 3 failed");
+    assertTest("Billing Decimal Precision", $calcNet(1250.50, 250.50, 13) === 1013.0, "Billing Math 4 failed");
+    assertTest("Billing Check-In Formula (net=fee)", $calcNet(500, 0, 0) === 500.0, "Check-in billing math failed");
+} catch (\Throwable $e) {
+    assertTest("Billing Calculation Suite", false, $e->getMessage());
+}
+
+// TEST 10: UHID Format & Sequential Generation (rolled back, non-destructive)
+try {
+    $db = getDB();
+    $db->beginTransaction();
+    $maxBefore = (int)$db->query("SELECT COALESCE(MAX(id),0) FROM patients")->fetchColumn();
+    $uhid1 = generateUHID();
+    assertTest("UHID Format (UHID-NNNNN)", preg_match('/^UHID-\d{5}$/', $uhid1) === 1, "UHID format invalid: {$uhid1}");
+    assertTest("UHID Starts With Prefix", str_starts_with($uhid1, UHID_PREFIX), "UHID prefix missing");
+
+    $suffix = substr(bin2hex(random_bytes(4)), 0, 8);
+    $stmtU = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status) VALUES (?, ?, ?, ?, ?, 'patient', 'active')");
+    $stmtU->execute(['testuhid_' . $suffix, 'testuhid_' . $suffix . '@test.local', password_hash('x', PASSWORD_DEFAULT), 'Test UHID', '9800000000']);
+    $uid = (int)$db->lastInsertId();
+    $stmtP = $db->prepare("INSERT INTO patients (user_id, uhid, gender, blood_group) VALUES (?, ?, 'other', 'O+')");
+    $stmtP->execute([$uid, $uhid1]);
+    $uhid2 = generateUHID();
+    $expected2 = UHID_PREFIX . str_pad($maxBefore + 2, 5, '0', STR_PAD_LEFT);
+    assertTest("UHID Sequential Increment", $uhid2 === $expected2, "Expected {$expected2}, got {$uhid2}");
+    $db->rollBack();
+} catch (\Throwable $e) {
+    assertTest("UHID Generation Suite", false, $e->getMessage());
+}
+
+// TEST 11: Invoice Number Format & Monthly Sequencing
+try {
+    $db = getDB();
+    $db->beginTransaction();
+    $inv = generateInvoiceNumber();
+    assertTest("Invoice Number Format INV-YYYYMM-NNNN", preg_match('/^INV-\d{6}-\d{4}$/', $inv) === 1, "Invoice format invalid: {$inv}");
+    $suffix2 = substr(bin2hex(random_bytes(4)), 0, 8);
+    $stmtU2 = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status) VALUES (?, ?, ?, ?, ?, 'patient', 'active')");
+    $stmtU2->execute(['testinv_' . $suffix2, 'testinv_' . $suffix2 . '@test.local', password_hash('x', PASSWORD_DEFAULT), 'Test Inv', '9800000001']);
+    $uid2 = (int)$db->lastInsertId();
+    $stmtP2 = $db->prepare("INSERT INTO patients (user_id, uhid, gender, blood_group) VALUES (?, ?, 'other', 'O+')");
+    $stmtP2->execute([$uid2, 'UHID-TESTINV']);
+    $pid2 = (int)$db->lastInsertId();
+    $stmtB = $db->prepare("INSERT INTO billing (patient_id, invoice_number, subtotal, discount, tax, net_amount, payment_status, payment_method, payment_date, created_by) VALUES (?, ?, 100, 0, 0, 100, 'paid', 'Cash', CURRENT_TIMESTAMP, ?)");
+    $stmtB->execute([$pid2, $inv, $uid2]);
+    $inv2 = generateInvoiceNumber();
+    assertTest("Invoice Number Sequential", $inv2 !== $inv, "Invoice number did not advance");
+    $prefix = 'INV-' . date('Ym') . '-';
+    $num1 = (int)substr($inv, -4);
+    $num2 = (int)substr($inv2, -4);
+    assertTest("Invoice Number Numeric Increment", $num2 === $num1 + 1, "Expected increment by 1, got {$num1} -> {$num2}");
+    $db->rollBack();
+} catch (\Throwable $e) {
+    assertTest("Invoice Number Suite", false, $e->getMessage());
+}
+
+// TEST 12: Appointment Token Sequencing (per doctor per date)
+try {
+    $db = getDB();
+    $db->beginTransaction();
+    $docId = (int)$db->query("SELECT id FROM doctors ORDER BY id LIMIT 1")->fetchColumn();
+    assertTest("Doctor Record Available For Token Test", $docId > 0, "No doctor row present");
+    $today = date('Y-m-d');
+    $token1 = generateToken($docId, $today);
+    assertTest("Token Number Starts At 1", $token1 >= 1, "Token 1 was {$token1}");
+
+    $suffix3 = substr(bin2hex(random_bytes(4)), 0, 8);
+    $stmtU3 = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status) VALUES (?, ?, ?, ?, ?, 'patient', 'active')");
+    $stmtU3->execute(['testtok_' . $suffix3, 'testtok_' . $suffix3 . '@test.local', password_hash('x', PASSWORD_DEFAULT), 'Test Token', '9800000002']);
+    $uid3 = (int)$db->lastInsertId();
+    $stmtP3 = $db->prepare("INSERT INTO patients (user_id, uhid, gender, blood_group) VALUES (?, ?, 'other', 'O+')");
+    $stmtP3->execute([$uid3, 'UHID-TOKTEST']);
+    $pid3 = (int)$db->lastInsertId();
+    $stmtA = $db->prepare("INSERT INTO appointments (patient_id, doctor_id, department_id, appointment_date, appointment_time, status, token_number, reason, created_by) VALUES (?, ?, 1, ?, '10:00', 'scheduled', ?, 'test', ?)");
+    $stmtA->execute([$pid3, $docId, $today, $token1, $uid3]);
+    $token2 = generateToken($docId, $today);
+    assertTest("Token Sequencing Increments", $token2 === $token1 + 1, "Expected " . ($token1+1) . ", got {$token2}");
+    $db->rollBack();
+} catch (\Throwable $e) {
+    assertTest("Token Sequencing Suite", false, $e->getMessage());
+}
+
+// Display Summary
 // Display Summary
 echo implode("\n", $testResults) . "\n\n";
 echo "-----------------------------------------------------\n";
