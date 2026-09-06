@@ -41,6 +41,7 @@ $defaultDbFallback = file_exists('E:/HM DATA/hms.db') ? 'E:/HM DATA/hms.db' : __
 define('DB_PATH', getenv('DB_PATH') ?: $defaultDbFallback);
 
 define('SCHEMA_PATH', __DIR__ . '/../sql/schema.sql');
+define('PGSQL_SCHEMA_PATH', __DIR__ . '/../sql/pgsql_schema.sql');
 define('SEED_PATH', __DIR__ . '/../sql/seed_data.sql');
 define('MYSQL_SCHEMA_PATH', __DIR__ . '/../sql/mysql_schema.sql');
 
@@ -83,28 +84,25 @@ function getDB(): PDO {
             }
         }
         
-        // PostgreSQL support
-if ($driver === 'pgsql') {
-    // Build DSN for PostgreSQL
-    $dsn = sprintf(
-        'pgsql:host=%s;port=%s;dbname=%s',
-        DB_HOST,
-        DB_PORT,
-        DB_NAME
-    );
-
-    // PDO options for PostgreSQL
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-        // Optional: enforce UTF‑8 encoding
-        PDO::PGSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'"
-    ];
-
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-    return $pdo;
-}
+            // PostgreSQL support
+            if ($driver === 'pgsql') {
+                $dsn = sprintf(
+                    'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
+                    DB_HOST,
+                    DB_PORT,
+                    DB_NAME
+                );
+                $options = [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
+                ];
+                if (defined('PDO::PGSQL_ATTR_INIT_COMMAND')) {
+                    $options[PDO::PGSQL_ATTR_INIT_COMMAND] = "SET NAMES 'UTF8'";
+                }
+                $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                return $pdo;
+            }
 
 // SQLite Driver / Fallback Mode
         try {
@@ -146,8 +144,9 @@ if ($driver === 'pgsql') {
  * Initialize new database with schema and seed data
  */
 function initializeDatabase(PDO $pdo): void {
-    if (file_exists(SCHEMA_PATH)) {
-        $schema = file_get_contents(SCHEMA_PATH);
+    $schemaPath = DB_DRIVER === 'pgsql' ? PGSQL_SCHEMA_PATH : SCHEMA_PATH;
+    if (file_exists($schemaPath)) {
+        $schema = file_get_contents($schemaPath);
         $pdo->exec($schema);
     }
     

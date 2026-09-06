@@ -1,11 +1,12 @@
 databases:
-  - name: medicare-hms-mysql
-    type: mysql
-    version: 8
+  - name: medicare-hms-postgres
+    type: postgres
+    version: 16
     plan: starter
     region: singapore
     databaseName: medicare_hms
     user: hms_user
+    ipAllowList: []
 
 services:
   - type: web
@@ -22,26 +23,26 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: DB_DRIVER
-        value: mysql
+        value: pgsql
       - key: DB_HOST
         fromDatabase:
-          name: medicare-hms-mysql
+          name: medicare-hms-postgres
           property: host
       - key: DB_PORT
         fromDatabase:
-          name: medicare-hms-mysql
+          name: medicare-hms-postgres
           property: port
       - key: DB_NAME
         fromDatabase:
-          name: medicare-hms-mysql
+          name: medicare-hms-postgres
           property: database
       - key: DB_USER
         fromDatabase:
-          name: medicare-hms-mysql
+          name: medicare-hms-postgres
           property: user
       - key: DB_PASS
         fromDatabase:
-          name: medicare-hms-mysql
+          name: medicare-hms-postgres
           property: password
       - key: DB_SSL
         value: "true"

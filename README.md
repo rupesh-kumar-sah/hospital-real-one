@@ -12,7 +12,7 @@ This repository is configured for a split deployment:
 
 - **Vercel** serves the public frontend URL and securely proxies requests to the backend.
 - **Render** runs the PHP/Apache backend.
-- **Render persistent disk** stores the SQLite database at `/var/www/html/data/hms.db`.
+- **Render PostgreSQL** stores the application database on Render's private network.
 
 ### Deploy the backend first
 
@@ -21,7 +21,9 @@ This repository is configured for a split deployment:
 3. Add every production Vercel origin as a comma-separated `FRONTEND_URL` value (for example, the production URL and any approved preview URL).
 4. Confirm Render reports `/api/health.php` as healthy before deploying the frontend.
 
-The persistent disk requires a paid Render service plan. Do not use an ephemeral/free service for patient data because its local SQLite database can be lost on redeploy or restart.
+The PostgreSQL database is provisioned by Render and is not publicly exposed because
+the Blueprint sets an empty inbound IP allow list. Use the private database
+connection values injected by Render; do not copy them into GitHub.
 
 ### Deploy the frontend
 
