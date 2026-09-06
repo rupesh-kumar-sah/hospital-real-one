@@ -1,0 +1,53 @@
+name: Frontend CI/CD — Vercel Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── DEPLOY TO VERCEL ─────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ] && [ "${{ github.event_name }}" == "push" ]; then
+            echo "Deploying to PRODUCTION..."
+            vercel --token $VERCEL_TOKEN --prod --yes
+            echo "✅ Production deploy complete"
+          else
+            echo "Deploying PREVIEW for PR #${{ github.event.pull_request.number }}..."
+            PREVIEW_URL=$(vercel --token $VERCEL_TOKEN --yes 2>&1 | tail -1)
+            echo "✅ Preview URL: $PREVIEW_URL"
+            echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
+          fi
+
+      - name: Verify Vercel deployment
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "Verifying Vercel deployment..."
+          sleep 15
+          
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 20 \
+            "https://medicare-hms.vercel.app/" || echo "000")
+          
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 302 ]; then
+            echo "✅ Frontend is live (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️  Frontend returned HTTP $HTTP_STATUS — check Vercel dashboard"
+          fi

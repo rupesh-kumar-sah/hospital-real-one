@@ -1,5 +1,30 @@
-.vercel
+# Environment secrets — never commit
 .env
-data/hms.db
-scratch/
-*.log
+
+# Vercel deployment metadata
+.vercel
+
+# SQLite database files (use MySQL in production)
+data/*.db
+data/*.sqlite
+*.db
+*.sqlite
+
+# Uploaded files (user content, not source code)
+uploads/*
+!uploads/.gitkeep
+
+# OS & editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# PHP Composer vendor (if added later)
+vendor/
+
+# Local bat files that expose tunnel/local credentials
+run_nepal_hospital.bat
+setup_mysql_tunnel.bat

@@ -1,0 +1,118 @@
+name: Backend CI/CD — PHP → Render
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── 1. LINT & TEST ────────────────────────────────────────────────────────
+  test:
+    name: PHP Lint & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo, pdo_sqlite, pdo_mysql, mbstring, openssl
+          coverage: none
+
+      - name: PHP syntax lint (all files)
+        run: |
+          echo "Running PHP syntax check..."
+          find . -name "*.php" \
+            -not -path "./.git/*" \
+            -not -path "./vendor/*" \
+            | xargs -I{} php -l {} \
+            | grep -v "No syntax errors" || true
+          
+          # Fail if any syntax errors found
+          ERRORS=$(find . -name "*.php" \
+            -not -path "./.git/*" \
+            -not -path "./vendor/*" \
+            | xargs -I{} php -l {} 2>&1 \
+            | grep "Parse error" | wc -l)
+          
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "❌ PHP syntax errors found!"
+            find . -name "*.php" -not -path "./.git/*" | xargs -I{} php -l {} 2>&1 | grep "Parse error"
+            exit 1
+          fi
+          echo "✅ All PHP files pass syntax check"
+
+      - name: Create test environment
+        run: |
+          # Create SQLite DB directory
+          mkdir -p data
+          # Provide required env vars for tests
+          echo "APP_ENV=testing" >> $GITHUB_ENV
+          echo "DB_DRIVER=sqlite" >> $GITHUB_ENV
+          echo "DB_PATH=./data/hms_test.db" >> $GITHUB_ENV
+          echo "APP_ENCRYPTION_KEY=ci_test_key_32_chars_exactly___ok" >> $GITHUB_ENV
+          echo "JWT_SECRET=ci_jwt_test_secret_minimum_32_chars!" >> $GITHUB_ENV
+
+      - name: Run test suite
+        env:
+          APP_ENV: testing
+          DB_DRIVER: sqlite
+          DB_PATH: ./data/hms_test.db
+          APP_ENCRYPTION_KEY: ci_test_key_32_chars_exactly___ok
+          JWT_SECRET: ci_jwt_test_secret_minimum_32_chars!
+        run: |
+          echo "Running HMS test suite..."
+          php tests/run_tests.php
+          echo "✅ All tests passed"
+
+  # ─── 2. DEPLOY TO RENDER ──────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deploy hook
+        run: |
+          echo "Triggering Render deployment..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+          
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
+            echo "✅ Render deploy triggered successfully (HTTP $HTTP_STATUS)"
+          else
+            echo "❌ Render deploy hook failed (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: Wait for Render health check
+        run: |
+          echo "Waiting 90s for Render to build and start..."
+          sleep 90
+          
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS..."
+            
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 15 \
+              "https://medicare-hms-backend.onrender.com/api/health.php" || echo "000")
+            
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "✅ Backend is healthy (HTTP 200)"
+              exit 0
+            fi
+            
+            echo "  Status: $HTTP_STATUS — retrying in 20s..."
+            sleep 20
+          done
+          
+          echo "❌ Backend health check failed after $MAX_ATTEMPTS attempts"
+          exit 1
