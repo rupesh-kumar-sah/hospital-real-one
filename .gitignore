@@ -39,3 +39,6 @@ scratch/
 
 # original uncompressed image backups (kept locally only)
 assets/images/_originals/
+
+data/rate_limits/
+data/sessions/
