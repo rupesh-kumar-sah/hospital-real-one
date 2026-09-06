@@ -16,29 +16,33 @@ function initApiHeaders(): void {
         return;
     }
     
-    // Whitelist Vercel frontend domains and local dev origins
-    $allowedOrigins = [
-        'http://localhost:3000',
-        'http://localhost:9000',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:9000'
-    ];
-    
-    $customOrigin = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? null);
-    if ($customOrigin) {
-        $allowedOrigins[] = rtrim($customOrigin, '/');
+    $allowedOrigins = preg_split(
+        '/\s*,\s*/',
+        getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? ''),
+        -1,
+        PREG_SPLIT_NO_EMPTY
+    );
+    if (getenv('APP_ENV') !== 'production') {
+        $allowedOrigins = array_merge($allowedOrigins, [
+            'http://localhost:3000',
+            'http://localhost:9000',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:9000'
+        ]);
     }
     
     $requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if (in_array($requestOrigin, $allowedOrigins) || preg_match('/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/', $requestOrigin)) {
+    if (in_array(rtrim($requestOrigin, '/'), array_map(
+        static fn(string $origin): string => rtrim($origin, '/'),
+        $allowedOrigins
+    ), true)) {
         header("Access-Control-Allow-Origin: {$requestOrigin}");
-    } else {
-        header("Access-Control-Allow-Origin: " . ($allowedOrigins[0] ?? '*'));
+        header('Vary: Origin');
+        header("Access-Control-Allow-Credentials: true");
     }
-    
-    header("Access-Control-Allow-Credentials: true");
+
     header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, X-CSRF-Token");
     header("Content-Type: application/json; charset=UTF-8");
     
     // Strict API Security Headers

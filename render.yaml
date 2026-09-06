@@ -1,8 +1,17 @@
+databases:
+  - name: medicare-hms-mysql
+    type: mysql
+    version: 8
+    plan: starter
+    region: singapore
+    databaseName: medicare_hms
+    user: hms_user
+
 services:
   - type: web
     name: medicare-hms-backend
     env: docker
-    plan: free
+    plan: starter
     region: singapore
     dockerfilePath: Dockerfile
     autoDeploy: true
@@ -13,12 +22,38 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: DB_DRIVER
-        value: sqlite
-      - key: DB_PATH
-        value: /var/www/html/data/hms.db
+        value: mysql
+      - key: DB_HOST
+        fromDatabase:
+          name: medicare-hms-mysql
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: medicare-hms-mysql
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: medicare-hms-mysql
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: medicare-hms-mysql
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: medicare-hms-mysql
+          property: password
+      - key: DB_SSL
+        value: "true"
+      - key: APP_URL
+        value: https://medicare-hms-backend.onrender.com
+      - key: FRONTEND_URL
+        value: https://medicare-hms.vercel.app
       - key: APP_ENCRYPTION_KEY
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
+      - key: RENDER
+        value: "true"
       - key: PORT
         value: "10000"

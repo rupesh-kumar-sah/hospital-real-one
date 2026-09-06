@@ -8,10 +8,17 @@
 // 1. HTTP SECURITY & CORS HEADERS
 // =====================================================
 if (!headers_sent()) {
-    // Cross-Origin Resource Sharing (CORS) for Vercel Frontend -> Render Backend
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-    header("Access-Control-Allow-Origin: $origin");
-    header("Access-Control-Allow-Credentials: true");
+    // Never reflect arbitrary origins when credentials are enabled.
+    $requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $configuredOrigins = preg_split('/\s*,\s*/', getenv('FRONTEND_URL') ?: '', -1, PREG_SPLIT_NO_EMPTY);
+    if ($requestOrigin !== '' && in_array(rtrim($requestOrigin, '/'), array_map(
+        static fn(string $origin): string => rtrim($origin, '/'),
+        $configuredOrigins
+    ), true)) {
+        header("Access-Control-Allow-Origin: {$requestOrigin}");
+        header('Vary: Origin');
+        header("Access-Control-Allow-Credentials: true");
+    }
     header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-Token");
     
@@ -35,6 +42,9 @@ if (!headers_sent()) {
     
     // Restrict unused browser features
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    if (getenv('APP_ENV') === 'production') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
 // =====================================================

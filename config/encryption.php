@@ -5,17 +5,18 @@
  */
 
 define('ENCRYPTION_CIPHER', 'aes-256-gcm');
-define('DEFAULT_SECRET_KEY', 'medicare_hms_e2ee_secret_key_2026_default_laptop_secured!');
-
 /**
  * Retrieve master encryption key
  */
 function getEncryptionKey(): string {
     $envKey = getenv('APP_ENCRYPTION_KEY') ?: ($_ENV['APP_ENCRYPTION_KEY'] ?? null);
-    if ($envKey && strlen($envKey) >= 16) {
+    if ($envKey && strlen($envKey) >= 32) {
         return hash('sha256', $envKey, true);
     }
-    return hash('sha256', DEFAULT_SECRET_KEY, true);
+    if (getenv('APP_ENV') === 'production') {
+        throw new RuntimeException('APP_ENCRYPTION_KEY must be configured with at least 32 characters.');
+    }
+    return hash('sha256', 'local-development-only-key', true);
 }
 
 /**
@@ -64,6 +65,9 @@ function encryptData(?string $plaintext): ?string {
         return 'ENC::' . base64_encode($iv . $cipher);
     } catch (\Throwable $e) {
         error_log('Encryption Error: ' . $e->getMessage());
+        if (getenv('APP_ENV') === 'production') {
+            throw $e;
+        }
         return $plaintext;
     }
 }

@@ -19,7 +19,6 @@ $response = [
     'backend' => 'Render Cloud Backend (PHP ' . PHP_VERSION . ')',
     'database' => [
         'driver' => DB_DRIVER,
-        'host' => DB_HOST,
         'connected' => false,
         'latency_ms' => 0,
         'error' => null
@@ -34,15 +33,14 @@ try {
     $dbStart = microtime(true);
     $pdo = getDB();
     $stmt = $pdo->query("SELECT COUNT(*) as user_count FROM users");
-    $row = $stmt->fetch();
-    
+    $stmt->fetch();
     $response['database']['connected'] = true;
     $response['database']['latency_ms'] = round((microtime(true) - $dbStart) * 1000, 2);
-    $response['database']['user_count'] = (int)($row['user_count'] ?? 0);
 } catch (\Throwable $e) {
+    error_log('Health check database failure: ' . $e->getMessage());
     $response['status'] = 'error';
     $response['database']['connected'] = false;
-    $response['database']['error'] = $e->getMessage();
+    $response['database']['error'] = 'Database unavailable';
 }
 
 $response['total_duration_ms'] = round((microtime(true) - $startTime) * 1000, 2);

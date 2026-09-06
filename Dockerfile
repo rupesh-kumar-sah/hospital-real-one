@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Apache configuration
-ENV APACHE_DOCUMENT_ROOT /var/www/html
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+ENV APACHE_DOCUMENT_ROOT=/var/www/html
+RUN sed -i 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
+    && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:10000>/' /etc/apache2/sites-available/000-default.conf
 
 # Allow .htaccess overrides
 RUN echo "<Directory /var/www/html/>\n\
@@ -24,8 +24,7 @@ RUN echo "<Directory /var/www/html/>\n\
 </Directory>" > /etc/apache2/conf-available/hms-override.conf \
     && a2enconf hms-override
 
-# Render uses port 10000 by default
-RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+# Render routes traffic to the port declared by the container.
 ENV PORT=10000
 
 # Copy app
@@ -34,7 +33,9 @@ COPY . /var/www/html/
 WORKDIR /var/www/html
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
-    && mkdir -p /var/www/html/uploads && chmod 777 /var/www/html/uploads
+    && mkdir -p /var/www/html/uploads /var/www/html/data \
+    && chown www-data:www-data /var/www/html/uploads /var/www/html/data \
+    && chmod 750 /var/www/html/uploads /var/www/html/data
 
 EXPOSE 10000
 

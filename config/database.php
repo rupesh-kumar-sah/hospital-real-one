@@ -70,9 +70,9 @@ function getDB(): PDO {
                     PDO::ATTR_TIMEOUT => 5
                 ];
                 
-                if (getenv('DB_SSL') === 'true') {
-                    $options[PDO::MYSQL_ATTR_SSL_CA] = getenv('DB_SSL_CA') ?: true;
-                    $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                if (filter_var(getenv('DB_SSL'), FILTER_VALIDATE_BOOLEAN)) {
+                    $options[PDO::MYSQL_ATTR_SSL_CA] = getenv('DB_SSL_CA') ?: '/etc/ssl/certs/ca-certificates.crt';
+                    $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
                 }
                 
                 $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);

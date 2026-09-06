@@ -6,6 +6,40 @@ All patient data, medical records, digital prescriptions, lab reports, and finan
 
 ---
 
+## 🚀 Production Deployment: Vercel + Render
+
+This repository is configured for a split deployment:
+
+- **Vercel** serves the public frontend URL and securely proxies requests to the backend.
+- **Render** runs the PHP/Apache backend.
+- **Render persistent disk** stores the SQLite database at `/var/www/html/data/hms.db`.
+
+### Deploy the backend first
+
+1. Create a Render Blueprint from `render.yaml`.
+2. Keep the generated `APP_ENCRYPTION_KEY` and `JWT_SECRET` values private. Never copy them into Git or Vercel.
+3. Add every production Vercel origin as a comma-separated `FRONTEND_URL` value (for example, the production URL and any approved preview URL).
+4. Confirm Render reports `/api/health.php` as healthy before deploying the frontend.
+
+The persistent disk requires a paid Render service plan. Do not use an ephemeral/free service for patient data because its local SQLite database can be lost on redeploy or restart.
+
+### Deploy the frontend
+
+1. Import this repository into Vercel.
+2. Use the repository root as the project root and leave the framework preset unset.
+3. Deploy the production branch. `vercel.json` keeps the frontend URL stable while routing application requests to the Render backend.
+4. Update Render's `FRONTEND_URL` if the Vercel production domain differs from `https://medicare-hms.vercel.app`.
+
+### Production security checklist
+
+- Use HTTPS-only custom domains for both services.
+- Rotate generated secrets if they are ever exposed.
+- Restrict Render access to the required Vercel origins; do not use `*` with credentialed requests.
+- Configure database backups for the Render persistent disk and test restoration before storing live patient records.
+- Set `APP_DEBUG=false` in Render and do not commit `.env`.
+
+---
+
 ## 🚀 Quick Start Guide: How to Run the Server
 
 ### 1. Prerequisites
@@ -30,16 +64,11 @@ Open your browser and navigate to:
 
 ---
 
-## 🔑 Main Super Admin Credentials
+## 🔑 Initial administrator account
 
-| Parameter | Credential |
-|---|---|
-| **Login URL** | `http://localhost:9000/auth/login.php` |
-| **Username / Email** | `sahkkr702@gmail.com` |
-| **Password** | `kumar@9090` |
-| **Role** | `admin` (Super Administrator) |
-
-> **Note**: Logged in as Admin, you can create, activate, deactivate, or delete Doctors, Nurses, Receptionists, Pharmacists, Lab Techs, and Patients via **User Management** (`/admin/manage_users.php`).
+The initial account is created from the deployment seed data. Change its password
+immediately after the first login and never store production credentials in this
+repository.
 
 ---
 
