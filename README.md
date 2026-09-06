@@ -21,11 +21,9 @@ This repository is configured for a split deployment:
 3. Add every production Vercel origin as a comma-separated `FRONTEND_URL` value (for example, the production URL and any approved preview URL).
 4. Confirm Render reports `/api/health.php` as healthy before deploying the frontend.
 
-The PostgreSQL database is provisioned by Render and is not publicly exposed because
-the Blueprint sets an empty inbound IP allow list. Use the private database
-connection values injected by Render; do not copy them into GitHub.
-The current Render API requires billing to be enabled before a managed PostgreSQL
-instance can be created.
+The free deployment uses SQLite inside the Render container. It is suitable only
+for demonstrations because data can be lost when the free service restarts or
+redeploys. Durable PostgreSQL storage requires billing on Render.
 
 ### Deploy the frontend
 

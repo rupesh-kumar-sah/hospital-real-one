@@ -1,14 +1,6 @@
-databases:
-  - name: medicare-hms-postgres
-    plan: basic_256mb
-    region: singapore
-    databaseName: medicare_hms
-    user: hms_user
-    ipAllowList: []
-
 services:
   - type: web
-    name: medicare-hms-backend
+    name: medicare-hms-free
     env: docker
     plan: free
     region: singapore
@@ -21,31 +13,11 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: DB_DRIVER
-        value: pgsql
-      - key: DB_HOST
-        fromDatabase:
-          name: medicare-hms-postgres
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: medicare-hms-postgres
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: medicare-hms-postgres
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: medicare-hms-postgres
-          property: user
-      - key: DB_PASS
-        fromDatabase:
-          name: medicare-hms-postgres
-          property: password
-      - key: DB_SSL
-        value: "true"
+        value: sqlite
+      - key: DB_PATH
+        value: /var/www/html/data/hms.db
       - key: APP_URL
-        value: https://medicare-hms-backend.onrender.com
+        value: https://medicare-hms-free.onrender.com
       - key: FRONTEND_URL
         value: https://medicare-hms.vercel.app
       - key: APP_ENCRYPTION_KEY

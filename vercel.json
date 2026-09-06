@@ -16,7 +16,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "https://medicare-hms-backend.onrender.com/$1"
+      "destination": "https://medicare-hms-free.onrender.com/$1"
     }
   ]
 }
