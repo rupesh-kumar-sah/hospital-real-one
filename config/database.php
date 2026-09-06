@@ -1,7 +1,7 @@
 <?php
 /**
  * Hospital Management System — Database Configuration
- * Supports MySQL (Production / Laptop Remote Tunnel) and SQLite3 (Local fallback).
+ * Supports PostgreSQL, MySQL, and SQLite3.
  */
 
 require_once __DIR__ . '/encryption.php';
@@ -31,12 +31,16 @@ if (!function_exists('loadEnv')) {
 // Auto-load .env from root directory if present
 loadEnv(__DIR__ . '/../.env');
 
-define('DB_DRIVER', getenv('DB_DRIVER') ?: 'sqlite');
-define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-define('DB_PORT', getenv('DB_PORT') ?: '3306');
-define('DB_NAME', getenv('DB_NAME') ?: 'medicare_hms');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
+$databaseUrl = getenv('DATABASE_URL') ?: '';
+$databaseUrlParts = $databaseUrl !== '' ? parse_url($databaseUrl) : false;
+$databaseScheme = is_array($databaseUrlParts) ? strtolower((string)($databaseUrlParts['scheme'] ?? '')) : '';
+
+define('DB_DRIVER', getenv('DB_DRIVER') ?: ($databaseScheme === 'postgres' || $databaseScheme === 'postgresql' ? 'pgsql' : 'sqlite'));
+define('DB_HOST', getenv('DB_HOST') ?: (is_array($databaseUrlParts) ? (string)($databaseUrlParts['host'] ?? '127.0.0.1') : '127.0.0.1'));
+define('DB_PORT', getenv('DB_PORT') ?: (is_array($databaseUrlParts) ? (string)($databaseUrlParts['port'] ?? '5432') : (DB_DRIVER === 'pgsql' ? '5432' : '3306')));
+define('DB_NAME', getenv('DB_NAME') ?: (is_array($databaseUrlParts) ? ltrim((string)($databaseUrlParts['path'] ?? ''), '/') : 'medicare_hms'));
+define('DB_USER', getenv('DB_USER') ?: (is_array($databaseUrlParts) ? urldecode((string)($databaseUrlParts['user'] ?? '')) : 'root'));
+define('DB_PASS', getenv('DB_PASS') ?: (is_array($databaseUrlParts) ? urldecode((string)($databaseUrlParts['pass'] ?? '')) : ''));
 $defaultDbFallback = file_exists('E:/HM DATA/hms.db') ? 'E:/HM DATA/hms.db' : __DIR__ . '/../data/hms.db';
 define('DB_PATH', getenv('DB_PATH') ?: $defaultDbFallback);
 
@@ -79,13 +83,18 @@ function getDB(): PDO {
                 $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
                 return $pdo;
             } catch (PDOException $e) {
-                error_log('MySQL Connection failed: ' . $e->getMessage() . '. Falling back to SQLite.');
-                // Proceed to SQLite fallback below
+                error_log('MySQL connection failed: ' . $e->getMessage());
+                if (getenv('APP_ENV') === 'production') {
+                    throw new RuntimeException('Configured production database is unavailable.', 0, $e);
+                }
             }
         }
         
             // PostgreSQL support
             if ($driver === 'pgsql') {
+                if (!extension_loaded('pdo_pgsql')) {
+                    throw new RuntimeException('The pdo_pgsql extension is required for PostgreSQL.');
+                }
                 $dsn = sprintf(
                     'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
                     DB_HOST,
@@ -104,7 +113,11 @@ function getDB(): PDO {
                 return $pdo;
             }
 
-// SQLite Driver / Fallback Mode
+        if ($driver !== 'sqlite') {
+            throw new RuntimeException('Unsupported database driver: ' . $driver);
+        }
+
+        // SQLite development mode.
         try {
             $dbDir = dirname(DB_PATH);
             if (!is_dir($dbDir)) {
@@ -127,13 +140,15 @@ function getDB(): PDO {
                 initializeDatabase($pdo);
             }
         } catch (PDOException $e) {
+            error_log('SQLite connection failed: ' . $e->getMessage());
             if (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/')) {
                 header('Content-Type: application/json');
                 http_response_code(500);
-                echo json_encode(['error' => 'Database Connection Failed: ' . $e->getMessage()]);
+                echo json_encode(['error' => 'Database connection failed.']);
                 exit;
             }
-            die('Database Connection Error: ' . $e->getMessage());
+            http_response_code(500);
+            die('Database connection failed.');
         }
     }
     

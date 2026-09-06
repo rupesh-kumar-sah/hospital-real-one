@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/session.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth_middleware.php';
 
 if (isLoggedIn()) {
     header('Location: ' . (ROLE_DASHBOARDS[getUserRole()] ?? '/'));
@@ -30,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validation
     if (empty($fullName) || empty($email) || empty($username) || empty($password)) {
         $error = 'Please fill in all required fields.';
-    } elseif (strlen($password) < 6) {
-        $error = 'Password must be at least 6 characters long.';
+    } elseif (($passwordError = passwordStrengthError($password)) !== null) {
+        $error = $passwordError;
     } elseif ($password !== $confirmPassword) {
         $error = 'Passwords do not match.';
     } else {
@@ -47,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->beginTransaction();
                 
                 // Create user
-                $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status) VALUES (?, ?, ?, ?, ?, 'patient', 'active')");
+                $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status, must_change_password) VALUES (?, ?, ?, ?, ?, 'patient', 'active', 0)");
                 $stmt->execute([
                     $username,
                     $email,
@@ -81,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register — <?= APP_NAME ?></title>
+    <meta name="robots" content="noindex, nofollow, noarchive">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label class="form-label" for="password">Password <span class="required">*</span></label>
                     <input type="password" class="form-control" id="password" name="password" 
-                           placeholder="Min 6 characters" required minlength="6">
+                           placeholder="12+ chars, upper/lower/number/symbol" required minlength="12">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="confirm_password">Confirm Password <span class="required">*</span></label>

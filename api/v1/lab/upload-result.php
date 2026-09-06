@@ -70,5 +70,5 @@ try {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
-    jsonError('Failed to upload lab result: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to upload lab result', $e);
 }

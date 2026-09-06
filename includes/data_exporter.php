@@ -1,15 +1,16 @@
 <?php
 /**
- * Hospital Management System — Data Exporter & Live Spreadsheet Sync
- * Automatically exports database tables into clean CSV spreadsheets and an 
- * interactive Google-Sheets-like HTML dashboard inside E:\HM DATA\
+ * Hospital Management System — Data Exporter
+ * Exports database tables into clean CSV files and an interactive
+ * spreadsheet-like HTML dashboard inside E:\HM DATA\
  */
 
 require_once __DIR__ . '/../config/database.php';
 
 function exportAllTablesToHMData(): array {
     $db = getDB();
-    $exportDir = 'E:\\HM DATA\\exports\\';
+    $baseDir = rtrim(getenv('EXPORT_DIRECTORY') ?: 'E:\\HM DATA', "\\/");
+    $exportDir = $baseDir . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR;
     if (!is_dir($exportDir)) {
         mkdir($exportDir, 0755, true);
     }
@@ -55,7 +56,7 @@ function exportAllTablesToHMData(): array {
     }
 
     // Generate Interactive Google-Sheets-like HTML Spreadsheet Report
-    generateInteractiveSpreadsheetHTML('E:\\HM DATA\\Hospital_Data_Sheets.html', $allTableData);
+    generateInteractiveSpreadsheetHTML($baseDir . DIRECTORY_SEPARATOR . 'Hospital_Data_Sheets.html', $allTableData);
 
     return $exportedFiles;
 }

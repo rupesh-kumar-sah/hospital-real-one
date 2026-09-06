@@ -29,6 +29,7 @@ try {
         LEFT JOIN departments dep ON d.department_id = dep.id
         WHERE mr.patient_id = ?
         ORDER BY mr.record_date DESC, mr.created_at DESC
+        LIMIT 100
     ");
     $stmt->execute([$patientId]);
     $records = $stmt->fetchAll();
@@ -42,5 +43,5 @@ try {
     
     jsonSuccess($records, 'Medical records retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch medical records: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch medical records', $e);
 }

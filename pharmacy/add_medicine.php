@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Pharmacy: Add Medicine
  */
@@ -12,14 +14,14 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/pharmacy/dashboard.php'], ['
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['drug_name']);
-    $generic = trim($_POST['generic_name']);
-    $cat = $_POST['category'];
-    $batch = trim($_POST['batch_number']);
-    $qty = (int)$_POST['stock_quantity'];
-    $unitPrice = (float)$_POST['unit_price'];
-    $sellingPrice = (float)$_POST['selling_price'];
-    $expiry = $_POST['expiry_date'];
+    $name = trim((string)($_POST['drug_name'] ?? ''));
+    $generic = trim((string)($_POST['generic_name'] ?? ''));
+    $cat = $_POST['category'] ?? '';
+    $batch = trim((string)($_POST['batch_number'] ?? ''));
+    $qty = (int)($_POST['stock_quantity'] ?? 0);
+    $unitPrice = (float)($_POST['unit_price'] ?? 0);
+    $sellingPrice = (float)($_POST['selling_price'] ?? 0);
+    $expiry = $_POST['expiry_date'] ?? '';
 
     if ($name && $qty) {
         $stmt = $db->prepare("INSERT INTO pharmacy_inventory (drug_name, generic_name, category, batch_number, stock_quantity, unit_price, selling_price, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')");

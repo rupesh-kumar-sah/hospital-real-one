@@ -16,9 +16,28 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin','receptionist','doctor','nurse','patient','pharmacist','lab_technician') NOT NULL,
     avatar VARCHAR(255) DEFAULT NULL,
     status ENUM('active','inactive','suspended') DEFAULT 'active',
+    must_change_password TINYINT(1) NOT NULL DEFAULT 1,
+    mfa_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    mfa_secret TEXT DEFAULT NULL,
+    mfa_backup_codes TEXT DEFAULT NULL,
+    mfa_enrolled_at DATETIME DEFAULT NULL,
     last_login DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS admin_devices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    label VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME DEFAULT NULL,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME DEFAULT NULL,
+    CONSTRAINT fk_admin_devices_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2. DEPARTMENTS
@@ -420,8 +439,16 @@ CREATE INDEX idx_patients_created ON patients (created_at);
 CREATE INDEX idx_password_resets_token_exp ON password_resets (token, expires_at);
 CREATE INDEX idx_pharmacy_inv_name_status ON pharmacy_inventory (drug_name(50), status);
 CREATE INDEX idx_refresh_tokens_hash_exp ON refresh_tokens (token_hash, expires_at, revoked);
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_departments_status_name ON departments(status, name);
+CREATE INDEX idx_medical_records_patient_created ON medical_records(patient_id, created_at);
+CREATE INDEX idx_prescription_items_prescription ON prescription_items(prescription_id);
+CREATE INDEX idx_vitals_patient_recorded ON vitals(patient_id, recorded_at);
+CREATE INDEX idx_lab_orders_status_ordered ON lab_orders(status, ordered_at);
+CREATE INDEX idx_lab_results_order ON lab_results(lab_order_id);
+CREATE INDEX idx_billing_patient_status_id ON billing(patient_id, payment_status, id);
+CREATE INDEX idx_pharmacy_inv_status_stock ON pharmacy_inventory(status, stock_quantity, reorder_level);
+CREATE INDEX idx_lab_catalog_status_category_name ON lab_test_catalog(status, category, test_name);
+CREATE INDEX idx_service_pricing_status_category_name ON service_pricing(status, category, service_name);
 
 SET FOREIGN_KEY_CHECKS = 1;
-
-
-

@@ -85,5 +85,5 @@ try {
     ]);
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch patient dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch patient dashboard', $e);
 }

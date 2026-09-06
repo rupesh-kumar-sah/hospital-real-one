@@ -39,6 +39,7 @@ try {
         JOIN users u_d ON d.user_id = u_d.id
         WHERE mr.patient_id = ?
         ORDER BY mr.record_date DESC
+        LIMIT 100
     ");
     $stmtMR->execute([$patientId]);
     $records = $stmtMR->fetchAll();
@@ -56,14 +57,24 @@ try {
         JOIN users u_d ON d.user_id = u_d.id
         WHERE pr.patient_id = ?
         ORDER BY pr.created_at DESC
+        LIMIT 100
     ");
     $stmtRx->execute([$patientId]);
     $prescriptions = $stmtRx->fetchAll();
     
-    $stmtRxItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+    $itemsByPrescription = [];
+    if ($prescriptions) {
+        $placeholders = implode(',', array_fill(0, count($prescriptions), '?'));
+        $itemStmt = $db->prepare(
+            "SELECT * FROM prescription_items WHERE prescription_id IN ({$placeholders}) ORDER BY prescription_id, id"
+        );
+        $itemStmt->execute(array_column($prescriptions, 'id'));
+        foreach ($itemStmt->fetchAll() as $item) {
+            $itemsByPrescription[$item['prescription_id']][] = $item;
+        }
+    }
     foreach ($prescriptions as &$rx) {
-        $stmtRxItems->execute([$rx['id']]);
-        $rx['items'] = $stmtRxItems->fetchAll();
+        $rx['items'] = $itemsByPrescription[$rx['id']] ?? [];
     }
     
     // Lab Results
@@ -74,6 +85,7 @@ try {
         LEFT JOIN lab_results lr ON lo.id = lr.lab_order_id
         WHERE lo.patient_id = ?
         ORDER BY lo.ordered_at DESC
+        LIMIT 100
     ");
     $stmtLab->execute([$patientId]);
     $labResults = $stmtLab->fetchAll();
@@ -99,5 +111,5 @@ try {
     ], 'Patient medical history retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch patient history: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch patient history', $e);
 }

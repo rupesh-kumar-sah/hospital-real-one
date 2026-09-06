@@ -8,6 +8,7 @@
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar || !overlay) return;
     sidebar.classList.toggle('mobile-open');
     overlay.classList.toggle('active');
 }
@@ -18,6 +19,7 @@ function toggleSidebar() {
 function toggleNotifications() {
     const panel = document.getElementById('notificationPanel');
     const userMenu = document.getElementById('userMenu');
+    if (!panel) return;
     if (userMenu) userMenu.classList.remove('active');
     panel.classList.toggle('active');
 }
@@ -26,6 +28,7 @@ function toggleUserMenu() {
     const userMenu = document.getElementById('userMenu');
     const panel = document.getElementById('notificationPanel');
     const roleMenu = document.getElementById('roleMenu');
+    if (!userMenu) return;
     if (panel) panel.classList.remove('active');
     if (roleMenu) roleMenu.classList.remove('active');
     userMenu.classList.toggle('active');
@@ -234,7 +237,10 @@ function printPage() {
 // DYNAMIC TABLE SEARCH
 // =====================================================
 function filterTable(inputId, tableId) {
-    const filter = document.getElementById(inputId).value.toLowerCase();
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+    const filter = input.value.toLowerCase();
     const rows = document.querySelectorAll(`#${tableId} tbody tr`);
     
     rows.forEach(row => {

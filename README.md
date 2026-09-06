@@ -14,6 +14,11 @@ This repository is configured for a split deployment:
 - **Render** runs the PHP/Apache backend.
 - **Render PostgreSQL** stores the application database on Render's private network.
 
+Neon PostgreSQL can also be used as the production database. Set its rotated
+connection string as Render's `DATABASE_URL` secret; never commit it or place
+it in frontend code. The application parses `postgresql://` and `postgres://`
+URLs and enforces `sslmode=require`.
+
 ### Deploy the backend first
 
 1. Create a Render Blueprint from `render.yaml`.
@@ -72,22 +77,29 @@ The initial account is created from the deployment seed data. Change its passwor
 immediately after the first login and never store production credentials in this
 repository.
 
+Administrator-created accounts receive a cryptographically random temporary
+password, which is shown once to the administrator and must be changed at first
+sign-in. Administrators can enroll RFC 6238 TOTP MFA from
+`/mgmt-x7k2p/mfa.php`; backup codes are displayed once and stored only as hashes.
+For existing databases, apply the matching migration in
+`sql/migrations/` before deploying the updated PHP files.
+
 ---
 
 ## 🧭 How to See & Test All 7 Role Modules
 
 The system features 7 distinct, color-coded role portals:
 
-### 1. 🧑‍💼 Administrator Portal (`http://localhost:9000/admin/dashboard.php`)
+### 1. 🧑‍💼 Administrator Portal (`http://localhost:9000/mgmt-x7k2p/dashboard.php`)
 - **Dashboard**: Live analytics, revenue stats, bed occupancy rate, department bar chart, bed doughnut chart.
-- **User Management** (`/admin/manage_users.php`): Create accounts for all 7 roles, toggle Active/Inactive, or Delete users.
-- **Departments** (`/admin/manage_departments.php`): Create, edit, activate, or delete medical departments.
-- **Wards & Beds** (`/admin/manage_wards.php`): Manage inpatient wards, change bed status, delete beds.
-- **Service Pricing** (`/admin/manage_pricing.php`): Set standard OPD fees, procedures, bed daily charges.
-- **Payment & QR Codes** (`/admin/manage_payment_methods.php`): Manage eSewa, Khalti, Fonepay, Cash & upload QR code images.
-- **Analytics & Reports** (`/admin/reports.php`): Monthly revenue trends and top doctor performance metrics.
-- **Audit Logs** (`/admin/audit_logs.php`): System audit trail tracking logins, deletions, and updates.
-- **Settings** (`/admin/settings.php`): Hospital contact details and local database backup.
+- **User Management** (`/mgmt-x7k2p/manage_users.php`): Create accounts for all 7 roles, toggle Active/Inactive, or Delete users.
+- **Departments** (`/mgmt-x7k2p/manage_departments.php`): Create, edit, activate, or delete medical departments.
+- **Wards & Beds** (`/mgmt-x7k2p/manage_wards.php`): Manage inpatient wards, change bed status, delete beds.
+- **Service Pricing** (`/mgmt-x7k2p/manage_pricing.php`): Set standard OPD fees, procedures, bed daily charges.
+- **Payment & QR Codes** (`/mgmt-x7k2p/manage_payment_methods.php`): Manage eSewa, Khalti, Fonepay, Cash & upload QR code images.
+- **Analytics & Reports** (`/mgmt-x7k2p/reports.php`): Monthly revenue trends and top doctor performance metrics.
+- **Audit Logs** (`/mgmt-x7k2p/audit_logs.php`): System audit trail tracking logins, deletions, and updates.
+- **Settings** (`/mgmt-x7k2p/settings.php`): Hospital contact details and Neon database administration.
 
 ### 2. 🧑‍💼 Receptionist Desk (`http://localhost:9000/receptionist/dashboard.php`)
 - **Register Patient** (`/receptionist/register_patient.php`): Create new patient files with auto-generated UHID.
@@ -173,3 +185,63 @@ New-NetFirewallRule -DisplayName "HMS Hospital LAN Access (Port 9000)" -Directio
 
 - **Database Path**: `E:\HM DATA\hms.db`
 - **Automated Backup**: Copy the `E:\HM DATA\hms.db` file to a USB drive or cloud backup anytime to save a complete backup of all hospital records.
+
+### Encrypted backup to Google Drive or OneDrive
+
+The recommended free backup is an encrypted SQLite snapshot saved in a folder
+that Google Drive or OneDrive synchronizes. The backup file is authenticated
+with AES-256-GCM; the database is never uploaded in plaintext.
+
+1. Add `BACKUP_ENCRYPTION_KEY` to `.env` using a new random 64-character
+   hexadecimal value:
+   `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`
+2. Install Google Drive for Desktop or OneDrive and choose a private sync
+   folder. Do not share this folder.
+3. Run:
+   `powershell -ExecutionPolicy Bypass -File tools\run_backup.ps1 -SyncDirectory "C:\Users\<you>\Google Drive\MediCare HMS Backups"`
+4. Confirm the `.mchms` and `.sha256` files appear in the cloud folder before
+   removing or replacing any local database.
+
+The PowerShell wrapper keeps 30 days of encrypted backups by default. To test a
+restore, use a separate output path:
+
+`php tools\encrypted_backup.php restore "C:\path\hms-YYYYMMDD-HHMMSS.mchms" "C:\temp\hms-restore.db"`
+
+Keep `BACKUP_ENCRYPTION_KEY` separately from the cloud folder. Without it, the
+encrypted backups cannot be restored.
+
+For recurring encrypted backups, keep the backup folder private and run:
+
+`powershell -ExecutionPolicy Bypass -File tools\auto_backup.ps1 -BackupDirectory "C:\Users\<you>\Google Drive\MediCare HMS Backups"`
+
+This creates a verified AES-256-GCM backup every six hours. Only the encrypted
+`.mchms` files should be synchronized to cloud storage.
+
+### Permanent deletion controls
+
+Admin Settings includes a danger-zone action that requires the current
+administrator password, CSRF token, an exact confirmation phrase, and a browser
+confirmation. It permanently wipes all records from the connected Neon
+PostgreSQL database and logs the administrator out. It cannot delete local or
+cloud backup files because the website has no access to those storage accounts.
+
+To permanently remove local encrypted backup files, run this separately on the
+hospital computer and type the required confirmation:
+
+`powershell -ExecutionPolicy Bypass -File tools\purge_backup_files.ps1`
+
+Delete cloud copies separately from the private Google Drive/OneDrive folder
+after confirming that no restoration is required.
+
+### Automatic readable data export
+
+To keep CSV files and the readable `Hospital_Data_Sheets.html` dashboard
+updated without clicking the admin button, run:
+
+`powershell -ExecutionPolicy Bypass -File tools\auto_export.ps1 -ExportDirectory "C:\Users\<you>\Google Drive\MediCare HMS Data"`
+
+The watcher checks the SQLite database every 30 seconds and exports whenever
+data changes. Google Drive or OneDrive then synchronizes those generated files.
+The folder must remain private because CSV and HTML exports are unencrypted and
+contain patient data. This is file synchronization, not direct Google Sheets
+API synchronization; opening a CSV in Sheets is still a manual step.

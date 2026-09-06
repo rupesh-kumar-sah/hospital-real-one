@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin: Departments & Wards Management
  */
@@ -7,7 +9,7 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('admin');
 
 $pageTitle = 'Manage Departments';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Departments']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['label' => 'Departments']];
 
 $db = getDB();
 
@@ -21,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$name, $description]);
             logAudit('create', 'departments', $db->lastInsertId(), "Created department {$name}");
             setFlash('success', "Department '{$name}' created.");
-            header('Location: /admin/manage_departments.php');
+            header('Location: ' . adminUrl('manage_departments.php'));
             exit;
         }
     } elseif ($action === 'delete_department') {
@@ -30,16 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$deptId]);
         logAudit('delete', 'departments', $deptId, "Deleted department #{$deptId}");
         setFlash('success', "Department deleted successfully.");
-        header('Location: /admin/manage_departments.php');
+        header('Location: ' . adminUrl('manage_departments.php'));
         exit;
     } elseif ($action === 'toggle_status') {
         $deptId = (int)($_POST['department_id'] ?? 0);
-        $newStatus = $_POST['status'] === 'active' ? 'inactive' : 'active';
+        $newStatus = ($_POST['status'] ?? '') === 'active' ? 'inactive' : 'active';
         $stmt = $db->prepare("UPDATE departments SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $deptId]);
         logAudit('update', 'departments', $deptId, "Updated department status to {$newStatus}");
         setFlash('success', "Department status updated to {$newStatus}.");
-        header('Location: /admin/manage_departments.php');
+        header('Location: ' . adminUrl('manage_departments.php'));
         exit;
     }
 }

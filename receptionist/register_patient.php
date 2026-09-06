@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Receptionist: Register Patient
  */
@@ -12,15 +14,15 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/receptionist/dashboard.php']
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fullName = trim($_POST['full_name']);
-    $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
-    $gender = $_POST['gender'];
-    $dob = $_POST['date_of_birth'];
-    $bloodGroup = $_POST['blood_group'];
-    $address = trim($_POST['address']);
-    $emergencyName = trim($_POST['emergency_contact_name']);
-    $emergencyPhone = trim($_POST['emergency_contact_phone']);
+    $fullName = trim((string)($_POST['full_name'] ?? ''));
+    $email = trim((string)($_POST['email'] ?? ''));
+    $phone = trim((string)($_POST['phone'] ?? ''));
+    $gender = $_POST['gender'] ?? 'other';
+    $dob = $_POST['date_of_birth'] ?? '';
+    $bloodGroup = $_POST['blood_group'] ?? '';
+    $address = trim((string)($_POST['address'] ?? ''));
+    $emergencyName = trim((string)($_POST['emergency_contact_name'] ?? ''));
+    $emergencyPhone = trim((string)($_POST['emergency_contact_phone'] ?? ''));
 
     if ($fullName) {
         $username = 'pat_' . time();

@@ -44,18 +44,19 @@ if ($token) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
+    requireCSRF();
     $newPassword = $_POST['new_password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
     
-    if (strlen($newPassword) < 6) {
-        $error = 'New password must be at least 6 characters long.';
+    if (($passwordError = passwordStrengthError($newPassword)) !== null) {
+        $error = $passwordError;
     } elseif ($newPassword !== $confirmPassword) {
         $error = 'Passwords do not match. Please verify and try again.';
     } else {
         $hash = password_hash($newPassword, PASSWORD_DEFAULT);
         
         // Update user password
-        $update = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $update = $db->prepare("UPDATE users SET password_hash = ?, must_change_password = FALSE WHERE id = ?");
         $update->execute([$hash, $userInfo['user_id']]);
         
         // Delete reset token
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set New Password — <?= APP_NAME ?></title>
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -105,19 +107,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
         
         <?php if ($tokenValid): ?>
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="token" value="<?= sanitize($token) ?>">
             
             <div class="form-group">
                 <label class="form-label" for="new_password">New Password</label>
                 <input type="password" class="form-control" id="new_password" name="new_password" 
-                       placeholder="Enter new password (min. 6 chars)" required minlength="6"
+                       placeholder="12+ chars, upper/lower/number/symbol" required minlength="12"
                        autocomplete="new-password">
             </div>
             
             <div class="form-group">
                 <label class="form-label" for="confirm_password">Confirm New Password</label>
                 <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                       placeholder="Re-enter new password" required minlength="6"
+                       placeholder="Re-enter new password" required minlength="12"
                        autocomplete="new-password">
             </div>
             

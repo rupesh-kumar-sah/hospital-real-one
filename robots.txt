@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Only the public patient portal is intended for search indexing.
+Disallow: /api/
+Disallow: /auth/
+Disallow: /doctor/
+Disallow: /lab/
+Disallow: /mgmt-
+Disallow: /nurse/
+Disallow: /patient/
+Disallow: /pharmacy/
+Disallow: /receptionist/
+Disallow: /includes/
+Disallow: /config/
+Disallow: /uploads/
+
+Sitemap: https://medicare-hms.vercel.app/sitemap.xml

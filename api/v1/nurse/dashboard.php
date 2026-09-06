@@ -37,6 +37,7 @@ try {
         LEFT JOIN users u_d ON d.user_id = u_d.id
         WHERE a.status = 'admitted'
         ORDER BY w.name ASC, b.bed_number ASC
+        LIMIT 100
     ");
     $roster = $stmtRoster->fetchAll();
     
@@ -50,5 +51,5 @@ try {
     ], 'Nurse dashboard retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch nurse dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch nurse dashboard', $e);
 }

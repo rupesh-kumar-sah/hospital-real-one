@@ -5,9 +5,15 @@
  */
 
 require_once __DIR__ . '/../../../includes/api_middleware.php';
+require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../config/security.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonError('Method Not Allowed. POST required.', 405);
+}
+
+if (!checkRateLimit('api_register', 5, 900)) {
+    jsonError('Too many registration attempts. Please wait and try again.', 429);
 }
 
 $body = getJsonBody();
@@ -26,8 +32,8 @@ if (empty($fullName) || empty($username) || empty($password) || empty($email) ||
     jsonError('Full name, username, email, phone number, and password are required.', 422);
 }
 
-if (strlen($password) < 6) {
-    jsonError('Password must be at least 6 characters.', 422);
+if (($passwordError = passwordStrengthError($password)) !== null) {
+    jsonError($passwordError, 422);
 }
 
 try {
@@ -60,8 +66,8 @@ try {
     
     // Auto-generate Welcome Notification
     try {
-        $stmtNotif = $db->prepare("INSERT INTO notifications (user_id, title, message, type, is_read, created_at) VALUES (?, 'Welcome to MediCare HMS', 'Your patient registration is complete. Your UHID is " . $uhid . ".', 'info', 0, CURRENT_TIMESTAMP)");
-        $stmtNotif->execute([$userId]);
+        $stmtNotif = $db->prepare("INSERT INTO notifications (user_id, title, message, type, is_read, created_at) VALUES (?, 'Welcome to MediCare HMS', ?, 'info', 0, CURRENT_TIMESTAMP)");
+        $stmtNotif->execute([$userId, 'Your patient registration is complete. Your UHID is ' . $uhid . '.']);
     } catch (\Throwable $e) {}
     
     $db->commit();
@@ -100,5 +106,5 @@ try {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
-    jsonError('Failed to register patient: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to register patient', $e);
 }

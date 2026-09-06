@@ -21,13 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         
         $whereSql = "WHERE " . implode(" AND ", $where);
-        $stmt = $db->prepare("SELECT * FROM lab_test_catalog {$whereSql} ORDER BY category ASC, test_name ASC");
+        $stmt = $db->prepare("SELECT * FROM lab_test_catalog {$whereSql} ORDER BY category ASC, test_name ASC LIMIT 100");
         $stmt->execute($params);
         $catalog = $stmt->fetchAll();
         
         jsonSuccess($catalog, 'Lab catalog retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch lab catalog: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch lab catalog', $e);
     }
 }
 
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         jsonSuccess(['id' => (int)$db->lastInsertId(), 'test_name' => $testName], 'Lab test added to catalog', 201);
     } catch (\Throwable $e) {
-        jsonError('Failed to add lab test: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to add lab test', $e);
     }
 }
 

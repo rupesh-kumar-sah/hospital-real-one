@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Nurse: Nursing Observation Notes
  */
@@ -14,9 +16,9 @@ $nurse = getNurseByUserId(getUserId());
 $nurseId = $nurse['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $admissionId = (int)$_POST['admission_id'];
-    $note = trim($_POST['note']);
-    $priority = $_POST['priority'];
+    $admissionId = (int)($_POST['admission_id'] ?? 0);
+    $note = trim((string)($_POST['note'] ?? ''));
+    $priority = $_POST['priority'] ?? 'normal';
 
     if ($admissionId && $note) {
         $stmtAdm = $db->prepare("SELECT patient_id FROM admissions WHERE id = ?");

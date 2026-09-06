@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin: Payment Gateways & QR Codes Management
  */
@@ -7,7 +9,7 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('admin');
 
 $pageTitle = 'Payment Gateways & QR Codes';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Payment Methods']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['label' => 'Payment Methods']];
 
 $db = getDB();
 
@@ -75,23 +77,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlash('error', 'Payment method name is required.');
         }
 
-        header('Location: /admin/manage_payment_methods.php');
+        header('Location: ' . adminUrl('manage_payment_methods.php'));
         exit;
     } elseif ($action === 'toggle_status') {
-        $id = (int)$_POST['method_id'];
-        $newStatus = $_POST['status'] === 'active' ? 'inactive' : 'active';
+        $id = (int)($_POST['method_id'] ?? 0);
+        $newStatus = ($_POST['status'] ?? '') === 'active' ? 'inactive' : 'active';
         $stmt = $db->prepare("UPDATE payment_methods SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $id]);
         setFlash('success', "Payment method status updated to {$newStatus}.");
-        header('Location: /admin/manage_payment_methods.php');
+        header('Location: ' . adminUrl('manage_payment_methods.php'));
         exit;
     } elseif ($action === 'delete_method') {
-        $id = (int)$_POST['method_id'];
+        $id = (int)($_POST['method_id'] ?? 0);
         $stmt = $db->prepare("DELETE FROM payment_methods WHERE id = ?");
         $stmt->execute([$id]);
         logAudit('delete', 'payment_methods', $id, "Deleted payment method #{$id}");
         setFlash('success', "Payment method deleted.");
-        header('Location: /admin/manage_payment_methods.php');
+        header('Location: ' . adminUrl('manage_payment_methods.php'));
         exit;
     }
 }

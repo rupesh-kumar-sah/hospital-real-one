@@ -20,14 +20,25 @@ try {
     }
     $patientId = (int)$patient['id'];
     
-    $stmtBills = $db->prepare("SELECT * FROM billing WHERE patient_id = ? ORDER BY created_at DESC");
+    $stmtBills = $db->prepare("SELECT * FROM billing WHERE patient_id = ? ORDER BY created_at DESC LIMIT 100");
     $stmtBills->execute([$patientId]);
     $bills = $stmtBills->fetchAll();
     
-    $stmtItems = $db->prepare("SELECT * FROM billing_items WHERE bill_id = ?");
+    // Fetch all line items in one query instead of one query per bill.
+    $itemsByBill = [];
+    if ($bills) {
+        $placeholders = implode(',', array_fill(0, count($bills), '?'));
+        $itemStmt = $db->prepare(
+            "SELECT * FROM billing_items WHERE bill_id IN ({$placeholders}) ORDER BY bill_id, id"
+        );
+        $itemStmt->execute(array_column($bills, 'id'));
+        foreach ($itemStmt->fetchAll() as $item) {
+            $itemsByBill[$item['bill_id']][] = $item;
+        }
+    }
+    
     foreach ($bills as &$b) {
-        $stmtItems->execute([$b['id']]);
-        $b['items'] = $stmtItems->fetchAll();
+        $b['items'] = $itemsByBill[$b['id']] ?? [];
     }
     
     // Active Payment Method QR Code
@@ -38,5 +49,5 @@ try {
         'payment_method' => $activePM ?: null
     ], 'Bills and payment methods retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch bills: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch bills', $e);
 }

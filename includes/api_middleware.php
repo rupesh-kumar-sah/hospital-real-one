@@ -62,6 +62,39 @@ function initApiHeaders(): void {
 // Automatically apply API headers
 initApiHeaders();
 
+/**
+ * Reject cookie-authenticated requests from untrusted browser origins.
+ */
+function requireApiCookieOrigin(): void {
+    if (empty($_COOKIE['hms_refresh_token'])) {
+        return;
+    }
+
+    $origin = rtrim((string)($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
+    if ($origin === '') {
+        return;
+    }
+
+    $allowedOrigins = preg_split(
+        '/\s*,\s*/',
+        getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? ''),
+        -1,
+        PREG_SPLIT_NO_EMPTY
+    );
+    if (getenv('APP_ENV') !== 'production') {
+        $allowedOrigins = array_merge($allowedOrigins, [
+            'http://localhost:3000',
+            'http://localhost:9000',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:9000'
+        ]);
+    }
+    $allowedOrigins = array_map(static fn(string $value): string => rtrim($value, '/'), $allowedOrigins);
+    if (!in_array($origin, $allowedOrigins, true)) {
+        jsonError('Cross-site request rejected.', 403);
+    }
+}
+
 // =====================================================
 // 2. UNIFIED JSON RESPONSE HELPERS
 // =====================================================
@@ -78,6 +111,10 @@ function jsonSuccess(mixed $data = null, string $message = 'Success', int $statu
 
 function jsonError(string $error = 'An error occurred', int $statusCode = 400, ?array $details = null): void {
     http_response_code($statusCode);
+    if ($statusCode >= 500) {
+        $error = 'Internal server error.';
+        $details = null;
+    }
     echo json_encode([
         'success' => false,
         'error' => $error,
@@ -85,6 +122,14 @@ function jsonError(string $error = 'An error occurred', int $statusCode = 400, ?
         'timestamp' => date('c')
     ], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+/**
+ * Return a safe server error without exposing database/implementation details.
+ */
+function jsonServerError(string $context, Throwable $exception): void {
+    error_log($context . ': ' . $exception->getMessage());
+    jsonError($context, 500);
 }
 
 // =====================================================
@@ -105,7 +150,7 @@ function getJsonBody(): array {
 function requireApiAuth(string|array|null $allowedRoles = null): array {
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
     
-    if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+    if (!preg_match('/\\ABearer[ \\t]+(\\S+)\\z/i', $authHeader, $matches)) {
         jsonError('Missing or malformed Authorization header. Bearer token required.', 401);
     }
     
@@ -117,6 +162,22 @@ function requireApiAuth(string|array|null $allowedRoles = null): array {
     }
     
     $userRole = $payload['role'] ?? '';
+
+    // A forced password change also applies to already-issued short-lived JWTs.
+    try {
+        $userStmt = getDB()->prepare('SELECT role, status, must_change_password FROM users WHERE id = ? LIMIT 1');
+        $userStmt->execute([(int)($payload['sub'] ?? 0)]);
+        $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user || $user['status'] !== 'active' || !hash_equals((string)$user['role'], (string)($payload['role'] ?? ''))) {
+            jsonError('Invalid or inactive access token.', 401);
+        }
+        if ((bool)$user['must_change_password']) {
+            jsonError('Password change required before API access.', 403, ['password_change_required' => true]);
+        }
+    } catch (\Throwable $e) {
+        error_log('API token subject validation error: ' . $e->getMessage());
+        jsonError('Authentication service unavailable.', 503);
+    }
     
     // Check role authorization if role restrictions are defined
     if ($allowedRoles !== null) {

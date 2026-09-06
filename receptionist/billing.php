@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Billing Module
  */
@@ -13,12 +15,12 @@ $db = getDB();
 
 // Handle Create Bill
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $patientId = (int)$_POST['patient_id'];
-    $subtotal = (float)$_POST['subtotal'];
+    $patientId = (int)($_POST['patient_id'] ?? 0);
+    $subtotal = (float)($_POST['subtotal'] ?? 0);
     $discount = (float)($_POST['discount'] ?? 0);
     $tax = (float)($_POST['tax'] ?? 0);
     $netAmount = $subtotal - $discount + $tax;
-    $paymentMethod = $_POST['payment_method'];
+    $paymentMethod = $_POST['payment_method'] ?? 'Cash';
 
     if ($patientId && $subtotal > 0) {
         $invNum = generateInvoiceNumber();

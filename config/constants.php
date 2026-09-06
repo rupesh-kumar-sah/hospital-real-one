@@ -6,11 +6,47 @@
 // Timezone
 date_default_timezone_set('Asia/Kathmandu');
 
+// Load deployment configuration before constants are evaluated.
+if (!function_exists('loadEnv')) {
+    function loadEnv(string $path): void {
+        if (!is_readable($path)) {
+            return;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) {
+                continue;
+            }
+            [$name, $value] = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            if ($name !== '' && getenv($name) === false) {
+                putenv($name . '=' . trim($value, "\"'"));
+            }
+        }
+    }
+}
+loadEnv(__DIR__ . '/../.env');
+
 // Application
 define('APP_NAME', 'MediCare HMS');
 define('APP_VERSION', '1.0.0');
 define('APP_TAGLINE', 'Hospital Management System');
 define('APP_BASE_URL', getenv('APP_URL') ?: 'http://localhost:9000');
+$configuredAdminPath = trim((string)(getenv('ADMIN_PATH') ?: ''));
+if ($configuredAdminPath === '') {
+    if (getenv('APP_ENV') === 'production') {
+        throw new RuntimeException('ADMIN_PATH must be configured.');
+    }
+    $configuredAdminPath = 'mgmt-x7k2p';
+}
+if (!preg_match('/\A[a-zA-Z0-9_-]+\z/', $configuredAdminPath)) {
+    throw new RuntimeException('ADMIN_PATH is invalid.');
+}
+define('ADMIN_PATH', $configuredAdminPath);
+function adminUrl(string $file = ''): string {
+    return '/' . ADMIN_PATH . ($file === '' ? '' : '/' . ltrim($file, '/'));
+}
 
 // Roles
 define('ROLE_ADMIN', 'admin');
@@ -34,7 +70,7 @@ define('ROLE_LABELS', [
 
 // Role dashboard paths
 define('ROLE_DASHBOARDS', [
-    'admin' => '/admin/dashboard.php',
+    'admin' => adminUrl('dashboard.php'),
     'receptionist' => '/receptionist/dashboard.php',
     'doctor' => '/doctor/dashboard.php',
     'nurse' => '/nurse/dashboard.php',

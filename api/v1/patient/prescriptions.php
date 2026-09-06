@@ -27,18 +27,29 @@ try {
         JOIN users u_d ON d.user_id = u_d.id
         WHERE pr.patient_id = ?
         ORDER BY pr.created_at DESC
+        LIMIT 100
     ");
     $stmt->execute([$patientId]);
     $prescriptions = $stmt->fetchAll();
     
-    $stmtItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+    // Fetch all line items in one query instead of one query per prescription.
+    $itemsByPrescription = [];
+    if ($prescriptions) {
+        $placeholders = implode(',', array_fill(0, count($prescriptions), '?'));
+        $itemStmt = $db->prepare(
+            "SELECT * FROM prescription_items WHERE prescription_id IN ({$placeholders}) ORDER BY prescription_id, id"
+        );
+        $itemStmt->execute(array_column($prescriptions, 'id'));
+        foreach ($itemStmt->fetchAll() as $item) {
+            $itemsByPrescription[$item['prescription_id']][] = $item;
+        }
+    }
     
     foreach ($prescriptions as &$rx) {
-        $stmtItems->execute([$rx['id']]);
-        $rx['items'] = $stmtItems->fetchAll();
+        $rx['items'] = $itemsByPrescription[$rx['id']] ?? [];
     }
     
     jsonSuccess($prescriptions, 'Prescriptions retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch prescriptions: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch prescriptions', $e);
 }

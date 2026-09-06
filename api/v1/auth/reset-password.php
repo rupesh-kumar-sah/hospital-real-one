@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../../../includes/api_middleware.php';
+require_once __DIR__ . '/../../../includes/functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonError('Method Not Allowed. POST required.', 405);
@@ -18,8 +19,8 @@ if (empty($token) || empty($newPassword)) {
     jsonError('Token and new password are required.', 422);
 }
 
-if (strlen($newPassword) < 6) {
-    jsonError('New password must be at least 6 characters.', 422);
+if (($passwordError = passwordStrengthError($newPassword)) !== null) {
+    jsonError($passwordError, 422);
 }
 
 try {
@@ -46,7 +47,7 @@ try {
     $db->beginTransaction();
     
     // Update password
-    $stmtUpd = $db->prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmtUpd = $db->prepare("UPDATE users SET password_hash = ?, must_change_password = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmtUpd->execute([$newHash, $userId]);
     
     // Delete consumed reset token
@@ -65,5 +66,5 @@ try {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
-    jsonError('Failed to reset password: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to reset password', $e);
 }

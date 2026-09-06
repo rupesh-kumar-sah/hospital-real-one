@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin Dashboard
  * Analytics, stats, and hospital overview
@@ -256,27 +258,27 @@ include __DIR__ . '/../includes/header.php';
     </div>
     <div class="card-body">
         <div class="quick-actions">
-            <a href="/admin/manage_users.php" class="quick-action-btn">
+            <a href="<?= adminUrl('manage_users.php') ?>" class="quick-action-btn">
                 <i class="fas fa-users"></i>
                 <span>Manage Users</span>
             </a>
-            <a href="/admin/manage_departments.php" class="quick-action-btn">
+            <a href="<?= adminUrl('manage_departments.php') ?>" class="quick-action-btn">
                 <i class="fas fa-building"></i>
                 <span>Departments</span>
             </a>
-            <a href="/admin/manage_wards.php" class="quick-action-btn">
+            <a href="<?= adminUrl('manage_wards.php') ?>" class="quick-action-btn">
                 <i class="fas fa-bed"></i>
                 <span>Wards & Beds</span>
             </a>
-            <a href="/admin/reports.php" class="quick-action-btn">
+            <a href="<?= adminUrl('reports.php') ?>" class="quick-action-btn">
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
-            <a href="/admin/audit_logs.php" class="quick-action-btn">
+            <a href="<?= adminUrl('audit_logs.php') ?>" class="quick-action-btn">
                 <i class="fas fa-clipboard-list"></i>
                 <span>Audit Logs</span>
             </a>
-            <a href="/admin/manage_pricing.php" class="quick-action-btn">
+            <a href="<?= adminUrl('manage_pricing.php') ?>" class="quick-action-btn">
                 <i class="fas fa-tags"></i>
                 <span>Service Pricing</span>
             </a>
@@ -487,7 +489,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="card">
     <div class="card-header">
         <h3><i class="fas fa-history" style="color: var(--success);"></i> Recent Activity</h3>
-        <a href="/admin/audit_logs.php" class="btn btn-sm btn-secondary">View All</a>
+        <a href="<?= adminUrl('audit_logs.php') ?>" class="btn btn-sm btn-secondary">View All</a>
     </div>
     <div class="card-body">
         <?php if (empty($recentActivity)): ?>

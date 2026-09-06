@@ -41,5 +41,5 @@ try {
     ], 'Password reset token generated successfully');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to process password reset: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to process password reset', $e);
 }

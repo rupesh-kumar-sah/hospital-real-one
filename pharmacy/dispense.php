@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Pharmacy: Dispense Medicine Desk
  */
@@ -92,7 +94,8 @@ if (isset($_GET['dispense_id'])) {
         }
     } catch (Exception $e) {
         $db->rollBack();
-        setFlash('error', "Dispensing failed: " . $e->getMessage());
+        error_log('Dispensing failed: ' . $e->getMessage());
+        setFlash('error', 'Dispensing failed. Please try again.');
     }
 
     header('Location: /pharmacy/dispense.php');

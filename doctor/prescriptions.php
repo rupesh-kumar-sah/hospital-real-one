@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: Prescriptions View
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
-requireRole(['doctor', 'pharmacist', 'admin', 'patient']);
+requireRole(['doctor', 'pharmacist', 'admin']);
 
 $pageTitle = 'Prescriptions Log';
 $breadcrumbs = [['label' => 'Dashboard', 'url' => '/doctor/dashboard.php'], ['label' => 'Prescriptions']];
@@ -47,7 +49,9 @@ include __DIR__ . '/../includes/header.php';
             <tbody>
                 <?php foreach ($prescriptions as $rx): ?>
                 <?php
-                $items = $db->query("SELECT * FROM prescription_items WHERE prescription_id = {$rx['id']}")->fetchAll();
+                $stmtItems = $db->prepare('SELECT * FROM prescription_items WHERE prescription_id = ?');
+                $stmtItems->execute([(int)$rx['id']]);
+                $items = $stmtItems->fetchAll();
                 ?>
                 <tr>
                     <td><strong>#Rx-<?= $rx['id'] ?></strong></td>

@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Receptionist: Appointments Management
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
-requireRole(['receptionist', 'admin', 'patient']);
+requireRole(['receptionist', 'admin']);
 
 $pageTitle = 'Manage Appointments';
 $breadcrumbs = [['label' => 'Dashboard', 'url' => '/receptionist/dashboard.php'], ['label' => 'Appointments']];
@@ -13,11 +15,11 @@ $db = getDB();
 
 // Handle New Appointment
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $patientId = (int)$_POST['patient_id'];
-    $doctorId = (int)$_POST['doctor_id'];
-    $date = $_POST['appointment_date'];
-    $time = $_POST['appointment_time'];
-    $reason = trim($_POST['reason']);
+    $patientId = (int)($_POST['patient_id'] ?? 0);
+    $doctorId = (int)($_POST['doctor_id'] ?? 0);
+    $date = $_POST['appointment_date'] ?? '';
+    $time = $_POST['appointment_time'] ?? '';
+    $reason = trim((string)($_POST['reason'] ?? ''));
 
     if ($patientId && $doctorId && $date) {
         $token = generateToken($doctorId, $date);
@@ -57,15 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['accept'])) {
     $acceptId = (int)$_GET['accept'];
     
-    $appt = $db->query("
+    $stmtAppt = $db->prepare("
         SELECT a.*, p.user_id as patient_user_id, u_p.full_name as patient_name, u_d.full_name as doctor_name, d.user_id as doctor_user_id
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
         JOIN users u_p ON p.user_id = u_p.id
         JOIN doctors d ON a.doctor_id = d.id
         JOIN users u_d ON d.user_id = u_d.id
-        WHERE a.id = {$acceptId}
-    ")->fetch();
+        WHERE a.id = ?
+    ");
+    $stmtAppt->execute([$acceptId]);
+    $appt = $stmtAppt->fetch();
 
     if ($appt) {
         $stmt = $db->prepare("UPDATE appointments SET status = 'scheduled' WHERE id = ?");

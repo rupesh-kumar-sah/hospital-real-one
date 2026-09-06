@@ -71,5 +71,5 @@ try {
     ], 'Receptionist dashboard data retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch receptionist dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch receptionist dashboard', $e);
 }

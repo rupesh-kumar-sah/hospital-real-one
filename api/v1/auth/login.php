@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../../../includes/api_middleware.php';
 require_once __DIR__ . '/../../../config/security.php';
+require_once __DIR__ . '/../../../config/mfa.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonError('Method Not Allowed. POST required.', 405);
@@ -19,6 +20,7 @@ if (!checkRateLimit('api_login', 5, 900)) {
 $body = getJsonBody();
 $username = trim($body['username'] ?? $body['email'] ?? '');
 $password = $body['password'] ?? '';
+$mfaCode = trim((string)($body['mfa_code'] ?? ''));
 
 if (empty($username) || empty($password)) {
     jsonError('Username/email and password are required.', 422);
@@ -27,7 +29,8 @@ if (empty($username) || empty($password)) {
 try {
     $db = getDB();
     $stmt = $db->prepare("
-        SELECT id, username, email, password_hash, full_name, role, status, avatar
+        SELECT id, username, email, password_hash, full_name, role, status, avatar,
+               must_change_password, mfa_enabled, mfa_secret, mfa_backup_codes
         FROM users
         WHERE (username = ? OR email = ?)
         LIMIT 1
@@ -36,11 +39,39 @@ try {
     $user = $stmt->fetch();
     
     if (!$user || !password_verify($password, $user['password_hash'])) {
+        try {
+            $audit = $db->prepare("INSERT INTO audit_logs (user_id, user_name, action, description, ip_address, user_agent) VALUES (NULL, NULL, 'login', 'API login failed', ?, ?)");
+            $audit->execute([$_SERVER['REMOTE_ADDR'] ?? '127.0.0.1', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
+        } catch (\Throwable $e) {}
         jsonError('Invalid username/email or password.', 401);
     }
     
     if ($user['status'] !== 'active') {
         jsonError('Account is ' . $user['status'] . '. Please contact the administrator.', 403);
+    }
+
+    if ($user['role'] === 'admin' && !empty($user['mfa_enabled'])) {
+        $secret = decryptData($user['mfa_secret'] ?? '');
+        $mfaVerified = is_string($secret) && verifyTotpCode($secret, $mfaCode);
+        $remainingBackupHashes = null;
+        if (!$mfaVerified && !empty($user['mfa_backup_codes'])) {
+            $remainingBackupHashes = consumeBackupCode($user['mfa_backup_codes'], $mfaCode);
+            $mfaVerified = $remainingBackupHashes !== null;
+        }
+        if (!$mfaVerified) {
+            try {
+                $audit = $db->prepare("INSERT INTO audit_logs (user_id, user_name, action, description, ip_address, user_agent) VALUES (?, ?, 'login', 'API admin MFA verification failed', ?, ?)");
+                $audit->execute([$user['id'], $user['full_name'], $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
+            } catch (\Throwable $e) {}
+            jsonError('MFA code required or invalid.', 401, ['mfa_required' => true]);
+        }
+        if ($remainingBackupHashes !== null) {
+            $db->prepare('UPDATE users SET mfa_backup_codes = ? WHERE id = ?')->execute([$remainingBackupHashes, $user['id']]);
+        }
+    }
+
+    if (!empty($user['must_change_password'])) {
+        jsonError('Password change required before API access.', 403, ['password_change_required' => true]);
     }
     
     // Update last login
@@ -79,5 +110,5 @@ try {
     ], 'Login successful');
     
 } catch (\Throwable $e) {
-    jsonError('Server error during authentication: ' . $e->getMessage(), 500);
+    jsonServerError('Server error during authentication', $e);
 }

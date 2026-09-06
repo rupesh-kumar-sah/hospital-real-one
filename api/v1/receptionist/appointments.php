@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         jsonSuccess($appointments, 'Appointments fetched');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch appointments: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch appointments', $e);
     }
 }
 

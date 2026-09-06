@@ -38,6 +38,7 @@ try {
         WHERE dep.status = 'active'
         GROUP BY dep.id, dep.name
         ORDER BY count DESC
+        LIMIT 100
     ");
     $stmtDepts->execute([$todayDate]);
     $deptWorkloads = $stmtDepts->fetchAll();
@@ -60,5 +61,5 @@ try {
     ], 'Admin dashboard analytics retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch admin dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch admin dashboard', $e);
 }

@@ -44,5 +44,5 @@ try {
     ], 'User profile retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch user profile: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch user profile', $e);
 }

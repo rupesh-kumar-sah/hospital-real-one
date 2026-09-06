@@ -36,5 +36,5 @@ try {
     
     jsonSuccess(['id' => (int)$db->lastInsertId()], 'Medication administration logged', 201);
 } catch (\Throwable $e) {
-    jsonError('Failed to record medication: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to record medication', $e);
 }

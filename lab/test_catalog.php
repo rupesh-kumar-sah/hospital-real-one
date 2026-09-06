@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Lab: Test Catalog
  */
@@ -14,7 +16,7 @@ $db = getDB();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'add';
     if ($action === 'delete_test') {
-        $testId = (int)$_POST['test_id'];
+        $testId = (int)($_POST['test_id'] ?? 0);
         $stmt = $db->prepare("DELETE FROM lab_test_catalog WHERE id = ?");
         $stmt->execute([$testId]);
         logAudit('delete', 'lab_test_catalog', $testId, "Deleted lab test #{$testId}");
@@ -22,11 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: /lab/test_catalog.php');
         exit;
     } else {
-        $name = trim($_POST['test_name']);
-        $cat = trim($_POST['category']);
-        $price = (float)$_POST['price'];
-        $sample = trim($_POST['sample_type']);
-        $range = trim($_POST['normal_range']);
+        $name = trim((string)($_POST['test_name'] ?? ''));
+        $cat = trim((string)($_POST['category'] ?? ''));
+        $price = (float)($_POST['price'] ?? 0);
+        $sample = trim((string)($_POST['sample_type'] ?? ''));
+        $range = trim((string)($_POST['normal_range'] ?? ''));
 
         if ($name && $price) {
             $stmt = $db->prepare("INSERT INTO lab_test_catalog (test_name, category, price, sample_type, normal_range, status) VALUES (?, ?, ?, ?, ?, 'active')");

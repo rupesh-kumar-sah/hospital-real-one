@@ -32,11 +32,12 @@ try {
         LEFT JOIN lab_results lr ON lo.id = lr.lab_order_id
         WHERE lo.patient_id = ?
         ORDER BY lo.ordered_at DESC
+        LIMIT 100
     ");
     $stmt->execute([$patientId]);
     $reports = $stmt->fetchAll();
     
     jsonSuccess($reports, 'Lab reports retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch lab reports: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch lab reports', $e);
 }

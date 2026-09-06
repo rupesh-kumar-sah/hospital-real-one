@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth_middleware.php';
+require_once __DIR__ . '/../config/security.php';
 
 // If already logged in, redirect to dashboard
 if (isLoggedIn()) {
@@ -21,9 +22,12 @@ $resetUrl = '';
 $userFound = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $identifier = trim($_POST['identifier'] ?? '');
     
-    if (empty($identifier)) {
+    if (!checkRateLimit('forgot_password', 5, 900)) {
+        $error = 'Too many password reset requests. Please wait and try again.';
+    } elseif (empty($identifier)) {
         $error = 'Please enter your username or email address.';
     } else {
         $db = getDB();
@@ -53,11 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ins = $db->prepare("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)");
             $ins->execute([$userFound['id'], $token, $expiresAt]);
             
-            $resetUrl = "/auth/reset_password.php?token=" . $token;
-            $successMsg = "Account identified for <strong>" . sanitize($userFound['full_name']) . "</strong> (" . sanitize($userFound['email']) . "). You can now reset your password below.";
-        } else {
-            $error = 'No active account found with that username or email address.';
+            // Never disclose whether an account exists or render a reset token
+            // in production. A reset token must only be delivered out-of-band.
+            if (getenv('APP_ENV') !== 'production') {
+                $resetUrl = "/auth/reset_password.php?token=" . rawurlencode($token);
+            }
         }
+        $successMsg = 'If an active account matches that identifier, password reset instructions will be sent securely.';
     }
 }
 ?>
@@ -67,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password — <?= APP_NAME ?></title>
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -92,18 +99,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($successMsg): ?>
         <div class="alert alert-success" style="background: rgba(16,185,129,0.15); color: #6ee7b7; border-left-color: #10b981; margin-bottom: 20px;">
             <i class="fas fa-check-circle"></i>
-            <?= $successMsg ?>
+            <?= sanitize($successMsg) ?>
         </div>
         
+        <?php if ($resetUrl !== ''): ?>
         <div style="background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;">
-            <p style="color: var(--gray-300); font-size: 0.875rem; margin-bottom: 12px;">Click below to proceed to the Password Reset screen:</p>
-            <a href="<?= $resetUrl ?>" class="btn btn-success" style="display: block; width: 100%; text-decoration: none;">
+            <p style="color: var(--gray-300); font-size: 0.875rem; margin-bottom: 12px;">Development reset link:</p>
+            <a href="<?= sanitize($resetUrl) ?>" class="btn btn-success" style="display: block; width: 100%; text-decoration: none;">
                 <i class="fas fa-lock-open"></i> Proceed to Reset Password
             </a>
         </div>
+        <?php endif; ?>
         <?php else: ?>
         
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <div class="form-group">
                 <label class="form-label" for="identifier">Username or Registered Email</label>
                 <input type="text" class="form-control" id="identifier" name="identifier" 

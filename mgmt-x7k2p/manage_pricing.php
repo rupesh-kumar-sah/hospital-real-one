@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin: Service Pricing
  */
@@ -7,31 +9,31 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('admin');
 
 $pageTitle = 'Service Pricing';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Service Pricing']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['label' => 'Service Pricing']];
 
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'add';
     if ($action === 'delete_service') {
-        $id = (int)$_POST['service_id'];
+        $id = (int)($_POST['service_id'] ?? 0);
         $stmt = $db->prepare("DELETE FROM service_pricing WHERE id = ?");
         $stmt->execute([$id]);
         logAudit('delete', 'service_pricing', $id, "Deleted service tariff #{$id}");
         setFlash('success', "Service item deleted.");
-        header('Location: /admin/manage_pricing.php');
+        header('Location: ' . adminUrl('manage_pricing.php'));
         exit;
     } else {
-        $name = trim($_POST['service_name']);
-        $cat = trim($_POST['category']);
-        $price = (float)$_POST['price'];
-        $desc = trim($_POST['description']);
+        $name = trim((string)($_POST['service_name'] ?? ''));
+        $cat = trim((string)($_POST['category'] ?? ''));
+        $price = (float)($_POST['price'] ?? 0);
+        $desc = trim((string)($_POST['description'] ?? ''));
         if ($name && $price) {
             $stmt = $db->prepare("INSERT INTO service_pricing (service_name, category, price, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$name, $cat, $price, $desc]);
             logAudit('create', 'service_pricing', $db->lastInsertId(), "Added service tariff {$name}");
             setFlash('success', "Service '{$name}' added.");
-            header('Location: /admin/manage_pricing.php');
+            header('Location: ' . adminUrl('manage_pricing.php'));
             exit;
         }
     }

@@ -141,7 +141,8 @@ function verifyRefreshToken(string $rawRefreshToken): ?array {
         $now = date('Y-m-d H:i:s');
         
         $stmt = $db->prepare("
-            SELECT rt.*, u.id as user_id, u.username, u.email, u.full_name, u.role, u.status
+            SELECT rt.*, u.id as user_id, u.username, u.email, u.full_name, u.role, u.status,
+                   u.must_change_password
             FROM refresh_tokens rt
             JOIN users u ON rt.user_id = u.id
             WHERE rt.token_hash = ? AND rt.revoked = 0 AND rt.expires_at > ? AND u.status = 'active'
@@ -215,4 +216,3 @@ function clearRefreshTokenCookie(): void {
         'samesite' => $sameSite
     ]);
 }
-

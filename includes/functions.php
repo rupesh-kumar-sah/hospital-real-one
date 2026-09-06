@@ -7,10 +7,67 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
 
 /**
+ * Validate the password policy used by all interactive password changes.
+ *
+ * Returns null when valid, otherwise a user-safe validation message.
+ */
+function passwordStrengthError(string $password): ?string {
+    if (strlen($password) < 12) {
+        return 'Password must be at least 12 characters long.';
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        return 'Password must contain at least one uppercase letter.';
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        return 'Password must contain at least one lowercase letter.';
+    }
+    if (!preg_match('/[0-9]/', $password)) {
+        return 'Password must contain at least one number.';
+    }
+    if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+        return 'Password must contain at least one symbol.';
+    }
+    return null;
+}
+
+function isStrongPassword(string $password): bool {
+    return passwordStrengthError($password) === null;
+}
+
+/**
+ * Generate a random password that satisfies the password policy.
+ * The returned value is only intended to be displayed once to an administrator.
+ */
+function generateTemporaryPassword(int $length = 20): string {
+    $length = max(12, $length);
+    $sets = [
+        'upper' => 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+        'lower' => 'abcdefghijkmnopqrstuvwxyz',
+        'digit' => '23456789',
+        'symbol' => '!#$%&()*+,-.:;=?@[]^_{|}~'
+    ];
+    $password = [
+        $sets['upper'][random_int(0, strlen($sets['upper']) - 1)],
+        $sets['lower'][random_int(0, strlen($sets['lower']) - 1)],
+        $sets['digit'][random_int(0, strlen($sets['digit']) - 1)],
+        $sets['symbol'][random_int(0, strlen($sets['symbol']) - 1)]
+    ];
+    $all = implode('', $sets);
+    while (count($password) < $length) {
+        $password[] = $all[random_int(0, strlen($all) - 1)];
+    }
+    for ($i = count($password) - 1; $i > 0; $i--) {
+        $j = random_int(0, $i);
+        [$password[$i], $password[$j]] = [$password[$j], $password[$i]];
+    }
+    return implode('', $password);
+}
+
+/**
  * Sanitize input
  */
-function sanitize(string $input): string {
-    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+function sanitize(mixed $input): string {
+    return htmlspecialchars(trim((string)($input ?? '')), ENT_QUOTES, 'UTF-8');
 }
 
 /**

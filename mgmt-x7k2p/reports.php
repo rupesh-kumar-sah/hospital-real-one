@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin: Analytics & Reports
  */
@@ -7,7 +9,7 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('admin');
 
 $pageTitle = 'Analytics & Reports';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Reports']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['label' => 'Reports']];
 
 $db = getDB();
 

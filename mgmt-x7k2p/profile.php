@@ -1,4 +1,9 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+require_once __DIR__ . '/../config/constants.php';
+if (str_contains((string)($_SERVER['SCRIPT_FILENAME'] ?? ''), DIRECTORY_SEPARATOR . ADMIN_PATH . DIRECTORY_SEPARATOR)) {
+    checkIPAllowlist('admin');
+}
 /**
  * Hospital Management System — User Profile Page
  */
@@ -13,10 +18,10 @@ $currentUser = getCurrentUser();
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fullName = trim($_POST['full_name']);
-    $phone = trim($_POST['phone']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
+    $fullName = trim((string)($_POST['full_name'] ?? ''));
+    $phone = trim((string)($_POST['phone'] ?? ''));
+    $email = trim((string)($_POST['email'] ?? ''));
+    $password = $_POST['password'] ?? '';
 
     $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ?, email = ? WHERE id = ?");
     $stmt->execute([$fullName, $phone, $email, getUserId()]);

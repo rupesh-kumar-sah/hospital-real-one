@@ -62,6 +62,7 @@ $autoPrint = isset($_GET['autoprint']) && $_GET['autoprint'] == '1';
 <head>
     <meta charset="UTF-8">
     <title>Print Receipt <?= sanitize($bill['invoice_number']) ?></title>
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <style>
         body { font-family: 'Courier New', Courier, monospace; width: 800px; margin: 0 auto; padding: 20px; color: #000; }
         .receipt-header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 15px; }

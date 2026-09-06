@@ -23,18 +23,20 @@ switch ($currentUser['role']) {
     case 'admin':
         $navItems = [
             ['section' => 'Main'],
-            ['label' => 'Dashboard', 'icon' => 'fa-chart-pie', 'url' => '/admin/dashboard.php', 'file' => 'dashboard.php', 'dir' => 'admin'],
+            ['label' => 'Dashboard', 'icon' => 'fa-chart-pie', 'url' => adminUrl('dashboard.php'), 'file' => 'dashboard.php', 'dir' => ADMIN_PATH],
             ['section' => 'Management'],
-            ['label' => 'Users', 'icon' => 'fa-users', 'url' => '/admin/manage_users.php', 'file' => 'manage_users.php', 'dir' => 'admin'],
-            ['label' => 'Departments', 'icon' => 'fa-building', 'url' => '/admin/manage_departments.php', 'file' => 'manage_departments.php', 'dir' => 'admin'],
-            ['label' => 'Wards & Beds', 'icon' => 'fa-bed', 'url' => '/admin/manage_wards.php', 'file' => 'manage_wards.php', 'dir' => 'admin'],
-            ['label' => 'Service Pricing', 'icon' => 'fa-tags', 'url' => '/admin/manage_pricing.php', 'file' => 'manage_pricing.php', 'dir' => 'admin'],
-            ['label' => 'Payment & QR Codes', 'icon' => 'fa-qrcode', 'url' => '/admin/manage_payment_methods.php', 'file' => 'manage_payment_methods.php', 'dir' => 'admin'],
+            ['label' => 'Users', 'icon' => 'fa-users', 'url' => adminUrl('manage_users.php'), 'file' => 'manage_users.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Departments', 'icon' => 'fa-building', 'url' => adminUrl('manage_departments.php'), 'file' => 'manage_departments.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Wards & Beds', 'icon' => 'fa-bed', 'url' => adminUrl('manage_wards.php'), 'file' => 'manage_wards.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Service Pricing', 'icon' => 'fa-tags', 'url' => adminUrl('manage_pricing.php'), 'file' => 'manage_pricing.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Payment & QR Codes', 'icon' => 'fa-qrcode', 'url' => adminUrl('manage_payment_methods.php'), 'file' => 'manage_payment_methods.php', 'dir' => ADMIN_PATH],
             ['section' => 'Reports'],
-            ['label' => 'Analytics', 'icon' => 'fa-chart-bar', 'url' => '/admin/reports.php', 'file' => 'reports.php', 'dir' => 'admin'],
-            ['label' => 'Audit Logs', 'icon' => 'fa-clipboard-list', 'url' => '/admin/audit_logs.php', 'file' => 'audit_logs.php', 'dir' => 'admin'],
+            ['label' => 'Analytics', 'icon' => 'fa-chart-bar', 'url' => adminUrl('reports.php'), 'file' => 'reports.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Audit Logs', 'icon' => 'fa-clipboard-list', 'url' => adminUrl('audit_logs.php'), 'file' => 'audit_logs.php', 'dir' => ADMIN_PATH],
             ['section' => 'System'],
-            ['label' => 'Settings', 'icon' => 'fa-cog', 'url' => '/admin/settings.php', 'file' => 'settings.php', 'dir' => 'admin'],
+            ['label' => 'MFA Security', 'icon' => 'fa-shield-halved', 'url' => adminUrl('mfa.php'), 'file' => 'mfa.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Registered Devices', 'icon' => 'fa-laptop', 'url' => adminUrl('devices.php'), 'file' => 'devices.php', 'dir' => ADMIN_PATH],
+            ['label' => 'Settings', 'icon' => 'fa-cog', 'url' => adminUrl('settings.php'), 'file' => 'settings.php', 'dir' => ADMIN_PATH],
         ];
         break;
 

@@ -31,5 +31,5 @@ try {
     
     jsonSuccess($results, 'Patient search results');
 } catch (\Throwable $e) {
-    jsonError('Failed to search patients: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to search patients', $e);
 }

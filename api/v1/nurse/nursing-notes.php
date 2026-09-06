@@ -39,5 +39,5 @@ try {
     
     jsonSuccess(['id' => (int)$db->lastInsertId()], 'Nursing note recorded', 201);
 } catch (\Throwable $e) {
-    jsonError('Failed to record nursing note: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to record nursing note', $e);
 }

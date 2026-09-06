@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: Patient Discharge Summary
  */
@@ -12,8 +14,8 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/doctor/dashboard.php'], ['la
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $admissionId = (int)$_POST['admission_id'];
-    $summary = trim($_POST['discharge_summary']);
+    $admissionId = (int)($_POST['admission_id'] ?? 0);
+    $summary = trim((string)($_POST['discharge_summary'] ?? ''));
 
     if ($admissionId) {
         $stmtAdm = $db->prepare("SELECT bed_id FROM admissions WHERE id = ?");

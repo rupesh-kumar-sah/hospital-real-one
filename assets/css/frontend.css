@@ -24,6 +24,21 @@ body {
     line-height: 1.6;
 }
 
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 8px;
+    z-index: 2001;
+    padding: 8px 12px;
+    color: #ffffff;
+    background: var(--dark);
+    border-radius: 6px;
+}
+
+.skip-link:focus {
+    left: 8px;
+}
+
 /* Header & Navigation */
 .top-nav {
     background: #ffffff;
@@ -361,6 +376,9 @@ body {
 }
 
 .dept-card {
+    display: block;
+    color: inherit;
+    text-decoration: none;
     background: #ffffff;
     border: 1px solid var(--border);
     border-radius: 12px;

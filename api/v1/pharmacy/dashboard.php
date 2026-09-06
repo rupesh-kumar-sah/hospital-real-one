@@ -40,10 +40,21 @@ try {
     ");
     $pendingQueue = $stmtQueue->fetchAll();
     
-    $stmtItems = $db->prepare("SELECT * FROM prescription_items WHERE prescription_id = ?");
+    // Fetch all queue items in one query instead of one query per prescription.
+    $itemsByPrescription = [];
+    if ($pendingQueue) {
+        $placeholders = implode(',', array_fill(0, count($pendingQueue), '?'));
+        $itemStmt = $db->prepare(
+            "SELECT * FROM prescription_items WHERE prescription_id IN ({$placeholders}) ORDER BY prescription_id, id"
+        );
+        $itemStmt->execute(array_column($pendingQueue, 'id'));
+        foreach ($itemStmt->fetchAll() as $item) {
+            $itemsByPrescription[$item['prescription_id']][] = $item;
+        }
+    }
+    
     foreach ($pendingQueue as &$rx) {
-        $stmtItems->execute([$rx['id']]);
-        $rx['items'] = $stmtItems->fetchAll();
+        $rx['items'] = $itemsByPrescription[$rx['id']] ?? [];
     }
     
     jsonSuccess([
@@ -57,5 +68,5 @@ try {
     ], 'Pharmacy dashboard retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch pharmacy dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch pharmacy dashboard', $e);
 }

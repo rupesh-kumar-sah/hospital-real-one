@@ -18,10 +18,15 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     } else {
         session_name('STAFF_BACKEND_SESS');
     }
-    
+
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (string)($_SERVER['SERVER_PORT'] ?? '') === '443'
+        || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+        || getenv('APP_ENV') === 'production';
     session_set_cookie_params([
         'lifetime' => 604800,
         'path' => '/',
+        'secure' => $isHttps,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
@@ -76,6 +81,9 @@ function getCurrentUser(): array {
  * Set user session after login
  */
 function setUserSession(array $user): void {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
     $_SESSION['email'] = $user['email'];
@@ -83,6 +91,10 @@ function setUserSession(array $user): void {
     $_SESSION['role'] = $user['role'];
     $_SESSION['avatar'] = $user['avatar'] ?? '';
     $_SESSION['phone'] = $user['phone'] ?? '';
+    $_SESSION['must_change_password'] = !empty($user['must_change_password']);
+    $_SESSION['mfa_verified'] = ($user['role'] ?? '') !== 'admin'
+        || empty($user['mfa_enabled'])
+        || !empty($user['mfa_verified']);
     $_SESSION['login_time'] = time();
 }
 

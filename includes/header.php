@@ -22,10 +22,13 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= sanitize($pageTitle) ?> — <?= APP_NAME ?></title>
     <meta name="description" content="<?= APP_NAME ?> — <?= APP_TAGLINE ?>">
+    <meta name="robots" content="noindex, nofollow, noarchive">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Font Awesome -->
@@ -43,6 +46,7 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
     </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-layout">
     
     <!-- Sidebar Overlay (mobile) -->
@@ -54,13 +58,13 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
         <!-- Top Header -->
         <header class="top-header">
             <div class="header-left">
-                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                <button type="button" class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open navigation menu">
                     <i class="fas fa-bars"></i>
                 </button>
                 <div>
                     <?php if (!empty($breadcrumbs)): ?>
                     <nav class="breadcrumb">
-                        <a href="<?= ROLE_DASHBOARDS[$currentUser['role']] ?>"><i class="fas fa-home"></i></a>
+                        <a href="<?= ROLE_DASHBOARDS[$currentUser['role']] ?>" aria-label="Dashboard"><i class="fas fa-home" aria-hidden="true"></i></a>
                         <?php foreach ($breadcrumbs as $crumb): ?>
                         <span class="separator">/</span>
                         <?php if (isset($crumb['url'])): ?>
@@ -77,13 +81,13 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
             
             <div class="header-right">
                 <!-- Search -->
-                <button class="header-btn" data-tooltip="Search" onclick="toggleSearch()">
+                <button type="button" class="header-btn" data-tooltip="Search" onclick="toggleSearch()" aria-label="Open search">
                     <i class="fas fa-search"></i>
                 </button>
                 
                 <!-- Notifications -->
                 <div class="dropdown">
-                    <button class="header-btn" onclick="toggleNotifications()">
+                    <button type="button" class="header-btn" onclick="toggleNotifications()" aria-label="Show notifications">
                         <i class="fas fa-bell"></i>
                         <?php if ($notifCount > 0): ?>
                         <span class="notification-dot"></span>
@@ -123,7 +127,7 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
                 
                 <!-- User Menu -->
                 <div class="dropdown">
-                    <button class="header-btn" onclick="toggleUserMenu()" style="width: auto; padding: 0 8px; gap: 8px; display: flex; align-items: center;">
+                    <button type="button" class="header-btn" onclick="toggleUserMenu()" aria-label="Open account menu" style="width: auto; padding: 0 8px; gap: 8px; display: flex; align-items: center;">
                         <div class="avatar avatar-sm" style="background: <?= $roleColor ?>;">
                             <?= strtoupper(substr($currentUser['full_name'], 0, 1)) ?>
                         </div>
@@ -137,9 +141,11 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
                         <a href="/<?= $currentUser['role'] === 'pharmacist' ? 'pharmacy' : ($currentUser['role'] === 'lab_technician' ? 'lab' : $currentUser['role']) ?>/profile.php" class="dropdown-item">
                             <i class="fas fa-user"></i> My Profile
                         </a>
-                        <a href="/admin/settings.php" class="dropdown-item">
+                        <?php if ($currentUser['role'] === 'admin'): ?>
+                        <a href="<?= adminUrl('settings.php') ?>" class="dropdown-item">
                             <i class="fas fa-cog"></i> Settings
                         </a>
+                        <?php endif; ?>
                         <div class="dropdown-divider"></div>
                         <a href="/auth/logout.php" class="dropdown-item danger">
                             <i class="fas fa-sign-out-alt"></i> Logout
@@ -150,7 +156,7 @@ $roleColor = ROLE_COLORS[$currentUser['role']] ?? '#6366f1';
         </header>
         
         <!-- Content Area -->
-        <div class="content-area">
+        <main id="main-content" class="content-area">
             <?php
             // Flash message
             $flash = getFlash();

@@ -12,14 +12,24 @@ services:
         value: production
       - key: APP_DEBUG
         value: "false"
+      - key: DATABASE_URL
+        sync: false
       - key: DB_DRIVER
-        value: sqlite
-      - key: DB_PATH
-        value: /var/www/html/data/hms.db
+        value: pgsql
+      - key: DB_SSL
+        value: "true"
       - key: APP_URL
         value: https://medicare-hms-free.onrender.com
       - key: FRONTEND_URL
         value: https://medicare-hms.vercel.app
+      - key: ADMIN_PATH
+        value: mgmt-x7k2p
+      - key: ADMIN_ALLOWED_IPS
+        sync: false
+      - key: STAFF_ALLOWED_IPS
+        sync: false
+      - key: TRUSTED_PROXY_IPS
+        sync: false
       - key: APP_ENCRYPTION_KEY
         generateValue: true
       - key: JWT_SECRET

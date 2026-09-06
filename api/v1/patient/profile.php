@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         jsonSuccess($profile, 'Profile retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch profile: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch profile', $e);
     }
 }
 
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
         jsonSuccess(null, 'Profile updated successfully');
     } catch (\Throwable $e) {
         if ($db->inTransaction()) $db->rollBack();
-        jsonError('Failed to update profile: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to update profile', $e);
     }
 }
 

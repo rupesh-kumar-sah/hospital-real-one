@@ -79,10 +79,10 @@ try {
     try {
         $stmtNotif = $db->prepare("
             INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
-            SELECT d.user_id, 'Patient Checked In', 'Patient with Token #" . $appt['token_number'] . " is waiting for consultation.', 'appointment', 0, CURRENT_TIMESTAMP
+            SELECT d.user_id, 'Patient Checked In', ?, 'appointment', 0, CURRENT_TIMESTAMP
             FROM doctors d WHERE d.id = ?
         ");
-        $stmtNotif->execute([$appt['doctor_id']]);
+        $stmtNotif->execute(['Patient with Token #' . (int)$appt['token_number'] . ' is waiting for consultation.', $appt['doctor_id']]);
     } catch (\Throwable $e) {}
     
     $db->commit();
@@ -99,5 +99,5 @@ try {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
-    jsonError('Failed to check in patient: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to check in patient', $e);
 }

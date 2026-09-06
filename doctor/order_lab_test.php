@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: Order Lab Test
  */
@@ -14,10 +16,10 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $patientId = (int)$_POST['patient_id'];
+    $patientId = (int)($_POST['patient_id'] ?? 0);
     $testIds = $_POST['test_ids'] ?? [];
-    $priority = $_POST['priority'];
-    $notes = trim($_POST['clinical_notes']);
+    $priority = $_POST['priority'] ?? 'routine';
+    $notes = trim((string)($_POST['clinical_notes'] ?? ''));
 
     if ($patientId && !empty($testIds)) {
         foreach ($testIds as $tId) {

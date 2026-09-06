@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonError('Method Not Allowed. POST required.', 405);
 }
 
+requireApiCookieOrigin();
+
 $refreshToken = $_COOKIE['hms_refresh_token'] ?? '';
 if (empty($refreshToken)) {
     $body = getJsonBody();

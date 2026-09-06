@@ -13,23 +13,25 @@ if (!isLoggedIn()) {
     exit;
 }
 
-$targetRole = trim($_GET['role'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    header('Allow: POST');
+    exit('Method Not Allowed');
+}
+require_once __DIR__ . '/../includes/auth_middleware.php';
+requireCSRF();
 
-if (array_key_exists($targetRole, ROLE_DASHBOARDS)) {
-    $db = getDB();
-    
-    // Find active account for target role
-    $stmt = $db->prepare("SELECT * FROM users WHERE role = ? AND status = 'active' ORDER BY id ASC LIMIT 1");
-    $stmt->execute([$targetRole]);
-    $user = $stmt->fetch();
-    
-    if ($user) {
-        setUserSession($user);
-        logAudit('login', 'users', $user['id'], 'Switched role workspace to: ' . $user['role']);
-        setFlash('success', 'Switched workspace to ' . (ROLE_LABELS[$user['role']] ?? ucfirst($user['role'])) . ' Role!');
-        header('Location: ' . ROLE_DASHBOARDS[$user['role']]);
-        exit;
-    }
+$targetRole = trim($_POST['role'] ?? $_GET['role'] ?? '');
+
+/*
+ * Never load another user's account here. The previous implementation selected
+ * the first active account for the requested role, allowing any authenticated
+ * user to impersonate staff. A role switch can only keep the current session's
+ * role and is retained as a compatibility redirect for existing links.
+ */
+if ($targetRole === getUserRole() && array_key_exists($targetRole, ROLE_DASHBOARDS)) {
+    header('Location: ' . ROLE_DASHBOARDS[$targetRole]);
+    exit;
 }
 
 setFlash('error', 'Invalid role selection.');

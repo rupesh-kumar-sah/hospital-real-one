@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: Patient Medical History
  */
 
 require_once __DIR__ . '/../includes/auth_middleware.php';
-requireRole(['doctor', 'nurse', 'admin', 'patient']);
+requireRole(['doctor', 'nurse', 'admin']);
 
 $pageTitle = 'Patient Medical History';
 $breadcrumbs = [['label' => 'Dashboard', 'url' => '/doctor/dashboard.php'], ['label' => 'Patient History']];

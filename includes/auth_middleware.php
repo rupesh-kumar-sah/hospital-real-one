@@ -18,6 +18,47 @@ function requireLogin(): void {
         header('Location: /auth/login.php');
         exit;
     }
+    enforcePasswordChange();
+}
+
+/**
+ * Keep administrator-created accounts out of every dashboard until the
+ * temporary password has been replaced. The change page itself is allowed.
+ */
+function enforcePasswordChange(): void {
+    $script = basename((string)($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    if ($script === 'change_password.php' && getUserRole() === 'admin' && empty($_SESSION['mfa_verified'])) {
+        destroySession();
+        setFlash('error', 'Administrator MFA verification is required.');
+        header('Location: /auth/login.php');
+        exit;
+    }
+    if ($script === 'change_password.php' || $script === 'mfa.php' || $script === 'logout.php' || $script === 'login.php') {
+        return;
+    }
+    $mustChange = $_SESSION['must_change_password'] ?? null;
+    if ($mustChange === null) {
+        try {
+            $stmt = getDB()->prepare('SELECT must_change_password FROM users WHERE id = ? LIMIT 1');
+            $stmt->execute([getUserId()]);
+            $mustChange = (bool)($stmt->fetchColumn() ?? false);
+            $_SESSION['must_change_password'] = $mustChange;
+        } catch (Throwable $e) {
+            error_log('Password change enforcement error: ' . $e->getMessage());
+            return;
+        }
+    }
+    if (getUserRole() === 'admin' && empty($_SESSION['mfa_verified'])) {
+        destroySession();
+        setFlash('error', 'Administrator MFA verification is required.');
+        header('Location: /auth/login.php');
+        exit;
+    }
+    if ($mustChange) {
+        setFlash('warning', 'Please change your temporary password before continuing.');
+        header('Location: /auth/change_password.php');
+        exit;
+    }
 }
 
 /**
@@ -137,4 +178,3 @@ function createNotification(int $userId, string $title, string $message, string 
         error_log('Notification error: ' . $e->getMessage());
     }
 }
-

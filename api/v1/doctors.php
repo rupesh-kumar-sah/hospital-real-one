@@ -29,11 +29,12 @@ try {
         LEFT JOIN departments dep ON d.department_id = dep.id
         {$whereSql}
         ORDER BY u.full_name ASC
+        LIMIT 100
     ");
     $stmt->execute($params);
     $doctors = $stmt->fetchAll();
     
     jsonSuccess($doctors, 'Doctors retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch doctors: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch doctors', $e);
 }

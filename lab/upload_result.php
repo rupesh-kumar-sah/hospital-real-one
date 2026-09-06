@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Lab: Upload Test Result
  */
@@ -12,11 +14,11 @@ $breadcrumbs = [['label' => 'Dashboard', 'url' => '/lab/dashboard.php'], ['label
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $orderId = (int)$_POST['lab_order_id'];
-    $val = trim($_POST['result_value']);
-    $range = trim($_POST['reference_range']);
-    $interp = $_POST['interpretation'];
-    $notes = trim($_POST['result_notes']);
+    $orderId = (int)($_POST['lab_order_id'] ?? 0);
+    $val = trim((string)($_POST['result_value'] ?? ''));
+    $range = trim((string)($_POST['reference_range'] ?? ''));
+    $interp = $_POST['interpretation'] ?? '';
+    $notes = trim((string)($_POST['result_notes'] ?? ''));
 
     if ($orderId && $val) {
         $db->beginTransaction();

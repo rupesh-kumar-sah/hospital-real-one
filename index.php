@@ -9,12 +9,17 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/constants.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth_middleware.php';
+require_once __DIR__ . '/config/security.php';
 
 $db = getDB();
 
 $flashMessage = getFlash();
 $bookingSuccess = null;
 $bookingError = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
+}
 
 // Handle Patient Logout
 if (isset($_GET['action']) && $_GET['action'] === 'patient_logout') {
@@ -35,8 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $bloodGroup = $_POST['blood_group'] ?? 'O+';
 
     if ($fullName && $phone && $password) {
+        if (($passwordError = passwordStrengthError($password)) !== null) {
+            $bookingError = $passwordError;
+        }
         // Check if phone or email already registered
-        $stmtCheck = $db->prepare("SELECT id FROM users WHERE phone = ? OR (email = ? AND email != '') LIMIT 1");
+        $stmtCheck = $bookingError === null
+            ? $db->prepare("SELECT id FROM users WHERE phone = ? OR (email = ? AND email != '') LIMIT 1")
+            : null;
+        if ($stmtCheck !== null) {
         $stmtCheck->execute([$phone, $email]);
         if ($stmtCheck->fetch()) {
             $bookingError = "An account with this phone number or email already exists. Please login instead.";
@@ -71,8 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 exit;
             } catch (Exception $e) {
                 $db->rollBack();
-                $bookingError = "Registration failed: " . $e->getMessage();
+                $bookingError = "Registration failed. Please try again.";
             }
+        }
         }
     } else {
         $bookingError = "Please fill in all required registration fields.";
@@ -86,13 +98,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $loginInput = trim($_POST['login_input'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if ($loginInput && $password) {
+    if (!checkRateLimit('patient_login', 10, 900)) {
+        $bookingError = 'Too many login attempts. Please wait and try again.';
+    } elseif ($loginInput && $password) {
         $stmt = $db->prepare("SELECT * FROM users WHERE (email = ? OR phone = ? OR username = ?) AND role = 'patient' AND status = 'active' LIMIT 1");
         $stmt->execute([$loginInput, $loginInput, $loginInput]);
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
             setUserSession($user);
+            resetRateLimit('patient_login');
             logAudit('login', 'users', $user['id'], 'Patient logged into patient portal');
             setFlash('success', "Welcome back, {$user['full_name']}!");
             header('Location: /#booking');
@@ -109,6 +124,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // 3. HANDLE APPOINTMENT BOOKING (Connected to Backend Database)
 // -------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'book_appointment') {
+    $bookingAllowed = checkRateLimit('public_booking', 20, 900);
+    if (!$bookingAllowed) {
+        $bookingError = 'Too many booking attempts. Please wait and try again.';
+    } else {
     $deptId = (int)($_POST['department_id'] ?? 0);
     $doctorId = (int)($_POST['doctor_id'] ?? 0);
     $date = $_POST['appointment_date'] ?? '';
@@ -142,15 +161,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $existing = $stmtUser->fetch();
 
             if ($existing && !empty($existing['patient_id'])) {
-                $patientId = $existing['patient_id'];
-                $userId = $existing['user_id'];
-                $uhid = $existing['uhid'];
+                if (!isLoggedIn() || (int)$existing['user_id'] !== getUserId()) {
+                    $bookingError = 'Please sign in to book an appointment for an existing patient account.';
+                } else {
+                    $patientId = $existing['patient_id'];
+                    $userId = $existing['user_id'];
+                    $uhid = $existing['uhid'];
+                }
             } else {
                 // Auto create patient record
                 $uhid = generateUHID();
                 $cleanUsername = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $patientName)) . rand(10, 99);
                 $cleanEmail = $patientEmail ?: $cleanUsername . '@patient.com';
-                $hashedPw = password_hash('patient123', PASSWORD_BCRYPT);
+                $hashedPw = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
 
                 $stmtUserIns = $db->prepare("INSERT INTO users (username, role, full_name, email, phone, password_hash, status) VALUES (?, 'patient', ?, ?, ?, ?, 'active')");
                 $stmtUserIns->execute([$cleanUsername, $patientName, $cleanEmail, $patientPhone, $hashedPw]);
@@ -159,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmtPatIns = $db->prepare("INSERT INTO patients (user_id, uhid, gender, blood_group) VALUES (?, ?, 'other', 'O+')");
                 $stmtPatIns->execute([$userId, $uhid]);
                 $patientId = $db->lastInsertId();
+            }
             }
         }
     }
@@ -200,11 +224,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             ];
         } catch (Exception $e) {
             $db->rollBack();
-            $bookingError = "Booking failed: " . $e->getMessage();
+            $bookingError = "Booking failed. Please try again.";
         }
     } else {
         $bookingError = "Please select a Doctor, Date, and ensure Patient information is complete.";
     }
+}
+}
 }
 
 // -------------------------------------------------------------
@@ -219,7 +245,7 @@ $myBills = [];
 if (isLoggedIn() && getUserRole() === 'patient') {
     $patientProfile = getPatientByUserId(getUserId());
     if ($patientProfile) {
-        $pId = $patientProfile['id'];
+        $pId = (int)$patientProfile['id'];
 
         // My Appointments
         $myAppointments = $db->query("
@@ -271,6 +297,20 @@ $doctors = $db->query("
 ")->fetchAll();
 
 $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AND qr_image IS NOT NULL AND qr_image != '' LIMIT 1")->fetch();
+$publicSiteUrl = rtrim((string)(getenv('FRONTEND_URL') ?: APP_BASE_URL), '/');
+$structuredData = [
+    '@context' => 'https://schema.org',
+    '@type' => 'Hospital',
+    'name' => APP_NAME,
+    'url' => $publicSiteUrl . '/',
+    'description' => APP_NAME . ' — ' . APP_TAGLINE,
+    'telephone' => '+977 1 4000000',
+    'address' => [
+        '@type' => 'PostalAddress',
+        'addressLocality' => 'Kathmandu',
+        'addressCountry' => 'NP'
+    ]
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -278,6 +318,19 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= APP_NAME ?> — Patient Portal & Online Appointment Booking</title>
+    <meta name="description" content="<?= sanitize(APP_NAME . ' — Online patient registration, appointment booking, prescriptions, and billing.') ?>">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="<?= sanitize($publicSiteUrl . '/') ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?= sanitize(APP_NAME . ' — Patient Portal') ?>">
+    <meta property="og:description" content="<?= sanitize(APP_NAME . ' — Online patient registration, appointment booking, prescriptions, and billing.') ?>">
+    <meta property="og:url" content="<?= sanitize($publicSiteUrl . '/') ?>">
+    <meta property="og:site_name" content="<?= sanitize(APP_NAME) ?>">
+    <meta name="twitter:card" content="summary">
+    <meta name="theme-color" content="#0284c7">
+    <script type="application/ld+json"><?= json_encode($structuredData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/assets/css/frontend.css">
@@ -285,7 +338,8 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
 <body>
 
 <!-- Top Navigation Bar (Patient Dedicated Portal) -->
-<nav class="top-nav">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<nav class="top-nav" aria-label="Primary navigation">
     <div class="nav-container">
         <a href="/" class="brand-logo">
             <i class="fas fa-plus-square text-accent"></i>
@@ -340,6 +394,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
 </div>
 <?php endif; ?>
 
+<main id="main-content">
 <!-- Hero Banner Section -->
 <section class="hero-section">
     <div class="hero-container">
@@ -375,7 +430,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         </div>
 
         <div class="hero-image-wrapper">
-            <img src="/assets/images/hospital_hero.jpg" alt="<?= APP_NAME ?> Patient Care">
+            <img src="/assets/images/hospital_hero.jpg" alt="<?= sanitize(APP_NAME) ?> hospital care team" width="900" height="600">
             
             <div class="emergency-card-float">
                 <div style="width: 44px; height: 44px; background: #fee2e2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
@@ -408,10 +463,10 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #bbf7d0; padding-bottom: 16px; margin-bottom: 16px;">
                 <div>
                     <span class="badge" style="background: #16a34a; color: #ffffff; font-weight: 800; padding: 6px 12px; font-size: 0.85rem;">OPD APPOINTMENT CONFIRMED</span>
-                    <h2 style="margin: 8px 0 0 0; color: #15803d; font-size: 1.6rem;">Token Number: #<?= $bookingSuccess['token'] ?></h2>
+                    <h2 style="margin: 8px 0 0 0; color: #15803d; font-size: 1.6rem;">Token Number: #<?= (int)$bookingSuccess['token'] ?></h2>
                 </div>
                 <div style="text-align: right;">
-                    <code style="font-size: 0.95rem; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #bbf7d0; font-weight: 800; color: #15803d;"><?= $bookingSuccess['uhid'] ?></code>
+                    <code style="font-size: 0.95rem; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #bbf7d0; font-weight: 800; color: #15803d;"><?= sanitize($bookingSuccess['uhid']) ?></code>
                 </div>
             </div>
             
@@ -420,7 +475,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
                 <div><strong>Doctor:</strong> Dr. <?= sanitize($bookingSuccess['doctor_name']) ?></div>
                 <div><strong>Department:</strong> <?= sanitize($bookingSuccess['dept_name']) ?></div>
                 <div><strong>Date:</strong> <?= formatDate($bookingSuccess['date']) ?></div>
-                <div><strong>Time Slot:</strong> <?= $bookingSuccess['time'] ?></div>
+                <div><strong>Time Slot:</strong> <?= sanitize($bookingSuccess['time']) ?></div>
                 <div><strong>Queue Status:</strong> Live in Doctor Queue</div>
             </div>
 
@@ -441,16 +496,17 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
 
         <?php if ($bookingError): ?>
         <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 14px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
-            <i class="fas fa-exclamation-circle"></i> <?= $bookingError ?>
+            <i class="fas fa-exclamation-circle"></i> <?= sanitize($bookingError) ?>
         </div>
         <?php endif; ?>
 
         <form method="POST" action="#booking">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="book_appointment">
             <div class="booking-grid">
                 <!-- Select Department -->
                 <div class="form-group-custom">
-                    <label>Select Department</label>
+                    <label for="deptSelect">Select Department</label>
                     <select name="department_id" id="deptSelect" class="form-control-custom" onchange="filterDoctorsByDept(this.value)">
                         <option value="">All Clinical Departments</option>
                         <?php foreach ($departments as $dept): ?>
@@ -461,7 +517,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
 
                 <!-- Select Doctor -->
                 <div class="form-group-custom">
-                    <label>Select Doctor <span style="color:#ef4444;">*</span></label>
+                    <label for="doctorSelect">Select Doctor <span style="color:#ef4444;">*</span></label>
                     <select name="doctor_id" id="doctorSelect" class="form-control-custom" required>
                         <option value="">Select Doctor</option>
                         <?php foreach ($doctors as $doc): ?>
@@ -474,14 +530,14 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
 
                 <!-- Date -->
                 <div class="form-group-custom">
-                    <label>Appointment Date <span style="color:#ef4444;">*</span></label>
-                    <input type="date" name="appointment_date" class="form-control-custom" required value="<?= date('Y-m-d') ?>" min="<?= date('Y-m-d') ?>">
+                    <label for="appointmentDate">Appointment Date <span style="color:#ef4444;">*</span></label>
+                    <input type="date" id="appointmentDate" name="appointment_date" class="form-control-custom" required value="<?= date('Y-m-d') ?>" min="<?= date('Y-m-d') ?>">
                 </div>
 
                 <!-- Time Slot -->
                 <div class="form-group-custom">
-                    <label>Preferred Time Slot</label>
-                    <select name="appointment_time" class="form-control-custom">
+                    <label for="appointmentTime">Preferred Time Slot</label>
+                    <select id="appointmentTime" name="appointment_time" class="form-control-custom">
                         <option value="09:00 AM">09:00 AM - 10:00 AM</option>
                         <option value="10:00 AM" selected>10:00 AM - 11:00 AM</option>
                         <option value="11:00 AM">11:00 AM - 12:00 PM</option>
@@ -509,18 +565,18 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
                 <?php else: ?>
                 <!-- Public Patient Info -->
                 <div class="form-group-custom">
-                    <label>Full Name <span style="color:#ef4444;">*</span></label>
-                    <input type="text" name="patient_name" class="form-control-custom" placeholder="e.g. Gita Shrestha" required>
+                    <label for="patientName">Full Name <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="patientName" name="patient_name" class="form-control-custom" placeholder="e.g. Gita Shrestha" required>
                 </div>
 
                 <div class="form-group-custom">
-                    <label>Phone Number <span style="color:#ef4444;">*</span></label>
-                    <input type="tel" name="patient_phone" class="form-control-custom" placeholder="e.g. 9841000000" required>
+                    <label for="patientPhone">Phone Number <span style="color:#ef4444;">*</span></label>
+                    <input type="tel" id="patientPhone" name="patient_phone" class="form-control-custom" placeholder="e.g. 9841000000" required>
                 </div>
 
                 <div class="form-group-custom">
-                    <label>Email Address</label>
-                    <input type="email" name="patient_email" class="form-control-custom" placeholder="your@email.com">
+                    <label for="patientEmail">Email Address</label>
+                    <input type="email" id="patientEmail" name="patient_email" class="form-control-custom" placeholder="your@email.com">
                 </div>
                 <?php endif; ?>
 
@@ -556,7 +612,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         </div>
 
         <div style="border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-lg);">
-            <img src="/assets/images/hospital_building.jpg" alt="<?= APP_NAME ?> Building Facade" loading="lazy" style="width: 100%; height: 400px; object-fit: cover;">
+            <img src="/assets/images/hospital_building.jpg" alt="<?= sanitize(APP_NAME) ?> hospital building exterior" loading="lazy" width="900" height="600" style="width: 100%; height: 400px; object-fit: cover;">
 
         </div>
     </div>
@@ -570,30 +626,30 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
     </div>
 
     <div class="nav-container grid-6">
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        <a href="#booking" class="dept-card">
             <div class="dept-icon"><i class="fas fa-heart-pulse"></i></div>
             <h4>Cardiology</h4>
-        </div>
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        </a>
+        <a href="#booking" class="dept-card">
             <div class="dept-icon" style="background: #eff6ff; color: #2563eb;"><i class="fas fa-brain"></i></div>
             <h4>Neurology</h4>
-        </div>
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        </a>
+        <a href="#booking" class="dept-card">
             <div class="dept-icon" style="background: #fef3c7; color: #d97706;"><i class="fas fa-bone"></i></div>
             <h4>Orthopedics</h4>
-        </div>
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        </a>
+        <a href="#booking" class="dept-card">
             <div class="dept-icon" style="background: #fce7f3; color: #db2777;"><i class="fas fa-baby"></i></div>
             <h4>Pediatrics</h4>
-        </div>
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        </a>
+        <a href="#booking" class="dept-card">
             <div class="dept-icon" style="background: #f3e8ff; color: #9333ea;"><i class="fas fa-person-breastfeeding"></i></div>
             <h4>Gynaecology</h4>
-        </div>
-        <div class="dept-card" onclick="document.getElementById('booking').scrollIntoView({behavior: 'smooth'})">
+        </a>
+        <a href="#booking" class="dept-card">
             <div class="dept-icon" style="background: #cffafe; color: #0891b2;"><i class="fas fa-x-ray"></i></div>
             <h4>Radiology</h4>
-        </div>
+        </a>
     </div>
 </section>
 
@@ -622,6 +678,8 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
     </div>
 </section>
 
+</main>
+
 <!-- Footer -->
 <footer>
     <div class="footer-container">
@@ -631,13 +689,6 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
                 <span><?= APP_NAME ?></span>
             </a>
             <p><?= APP_NAME ?> Patient Portal — Exclusively designed for patient registration, appointment tracking, digital prescriptions, and instant bills.</p>
-        </div>
-        <div>
-            <h4>Hospital Staff Portal</h4>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Are you a doctor, administrator, nurse, or receptionist?</p>
-            <a href="/auth/login.php" class="btn-outline" style="color: #ffffff; border-color: #475569; display: inline-flex; margin-top: 8px;">
-                <i class="fas fa-lock"></i> Hospital Staff Login
-            </a>
         </div>
     </div>
     <div style="text-align: center; font-size: 0.875rem;">
@@ -658,6 +709,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         <p style="color: var(--dark-muted); font-size: 0.875rem; margin-bottom: 20px;">Register to manage appointments, view prescriptions, and pay bills online.</p>
 
         <form method="POST" action="/">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="patient_register">
             
             <div class="form-group-custom mb-12">
@@ -718,6 +770,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         <p style="color: var(--dark-muted); font-size: 0.875rem; margin-bottom: 20px;">Access your medical profile, appointments, and receipts.</p>
 
         <form method="POST" action="/">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
             <input type="hidden" name="action" value="patient_login">
             
             <div class="form-group-custom mb-16">

@@ -12,10 +12,10 @@ $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        $stmt = $db->query("SELECT * FROM service_pricing WHERE status = 'active' ORDER BY category ASC, service_name ASC");
+        $stmt = $db->query("SELECT * FROM service_pricing WHERE status = 'active' ORDER BY category ASC, service_name ASC LIMIT 100");
         jsonSuccess($stmt->fetchAll(), 'Service pricing catalog retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch pricing: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch pricing', $e);
     }
 }
 
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         jsonSuccess(['id' => (int)$db->lastInsertId(), 'service_name' => $serviceName], 'Service pricing added', 201);
     } catch (\Throwable $e) {
-        jsonError('Failed to add service pricing: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to add service pricing', $e);
     }
 }
 

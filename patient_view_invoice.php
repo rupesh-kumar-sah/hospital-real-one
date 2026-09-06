@@ -75,6 +75,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Invoice <?= sanitize($bill['invoice_number']) ?> — <?= APP_NAME ?></title>
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/assets/css/frontend.css">
@@ -144,7 +145,7 @@ $activePM = $db->query("SELECT * FROM payment_methods WHERE status = 'active' AN
         <div>
             <?php if ($activePM): ?>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" style="width: 80px; height: 80px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                <img src="<?= htmlspecialchars($activePM['qr_image'], ENT_QUOTES, 'UTF-8') ?>" alt="Hospital payment QR code" width="80" height="80" style="width: 80px; height: 80px; border-radius: 6px; border: 1px solid #cbd5e1;">
                 <div style="font-size: 0.8rem; color: #475569;">
                     <strong>Hospital Payment QR</strong><br>
                     Pay via eSewa / Khalti / Fonepay

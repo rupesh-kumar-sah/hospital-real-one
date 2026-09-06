@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Nurse: Medication Administration Record (MAR)
  */
@@ -14,9 +16,9 @@ $nurse = getNurseByUserId(getUserId());
 $nurseId = $nurse['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $admissionId = (int)$_POST['admission_id'];
-    $drugName = trim($_POST['drug_name']);
-    $dosage = trim($_POST['dosage']);
+    $admissionId = (int)($_POST['admission_id'] ?? 0);
+    $drugName = trim((string)($_POST['drug_name'] ?? ''));
+    $dosage = trim((string)($_POST['dosage'] ?? ''));
 
     if ($admissionId && $drugName) {
         $stmtAdm = $db->prepare("SELECT patient_id FROM admissions WHERE id = ?");

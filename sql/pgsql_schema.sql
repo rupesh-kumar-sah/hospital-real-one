@@ -14,10 +14,28 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) NOT NULL,
     avatar VARCHAR(255) DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'active',
+    must_change_password BOOLEAN NOT NULL DEFAULT TRUE,
+    mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_secret TEXT DEFAULT NULL,
+    mfa_backup_codes TEXT DEFAULT NULL,
+    mfa_enrolled_at TIMESTAMP DEFAULT NULL,
     last_login TIMESTAMP DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
+
+CREATE TABLE IF NOT EXISTS admin_devices (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    label VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP DEFAULT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP DEFAULT NULL
+);
 
 -- 2. DEPARTMENTS
 CREATE TABLE IF NOT EXISTS departments (
@@ -27,7 +45,7 @@ CREATE TABLE IF NOT EXISTS departments (
     head_doctor_id INT DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
 -- 3. PATIENTS
 CREATE TABLE IF NOT EXISTS patients (
@@ -53,7 +71,7 @@ CREATE TABLE IF NOT EXISTS patients (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_patients_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+);
 
 -- 4. DOCTORS
 CREATE TABLE IF NOT EXISTS doctors (
@@ -73,7 +91,7 @@ CREATE TABLE IF NOT EXISTS doctors (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_doctors_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_doctors_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
-)
+);
 
 -- 5. WARDS
 CREATE TABLE IF NOT EXISTS wards (
@@ -85,7 +103,7 @@ CREATE TABLE IF NOT EXISTS wards (
     description TEXT,
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
 -- 6. NURSES
 CREATE TABLE IF NOT EXISTS nurses (
@@ -100,7 +118,7 @@ CREATE TABLE IF NOT EXISTS nurses (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_nurses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_nurses_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE SET NULL
-)
+);
 
 -- 7. BEDS
 CREATE TABLE IF NOT EXISTS beds (
@@ -113,7 +131,7 @@ CREATE TABLE IF NOT EXISTS beds (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_ward_bed UNIQUE (ward_id, bed_number),
     CONSTRAINT fk_beds_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE CASCADE
-)
+);
 
 -- 8. APPOINTMENTS
 CREATE TABLE IF NOT EXISTS appointments (
@@ -135,7 +153,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     CONSTRAINT fk_app_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     CONSTRAINT fk_app_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     CONSTRAINT fk_app_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-)
+);
 
 -- 9. ADMISSIONS
 CREATE TABLE IF NOT EXISTS admissions (
@@ -157,7 +175,7 @@ CREATE TABLE IF NOT EXISTS admissions (
     CONSTRAINT fk_adm_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     CONSTRAINT fk_adm_bed FOREIGN KEY (bed_id) REFERENCES beds(id) ON DELETE SET NULL,
     CONSTRAINT fk_adm_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE SET NULL
-)
+);
 
 -- 10. MEDICAL RECORDS
 CREATE TABLE IF NOT EXISTS medical_records (
@@ -179,7 +197,7 @@ CREATE TABLE IF NOT EXISTS medical_records (
     CONSTRAINT fk_mr_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     CONSTRAINT fk_mr_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
     CONSTRAINT fk_mr_adm FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE SET NULL
-)
+);
 
 -- 11. PRESCRIPTIONS
 CREATE TABLE IF NOT EXISTS prescriptions (
@@ -195,7 +213,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
     CONSTRAINT fk_rx_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
     CONSTRAINT fk_rx_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     CONSTRAINT fk_rx_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
-)
+);
 
 -- 12. PRESCRIPTION ITEMS
 CREATE TABLE IF NOT EXISTS prescription_items (
@@ -209,7 +227,7 @@ CREATE TABLE IF NOT EXISTS prescription_items (
     instructions TEXT,
     quantity INT DEFAULT 0,
     CONSTRAINT fk_rxi_rx FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE
-)
+);
 
 -- 13. VITALS
 CREATE TABLE IF NOT EXISTS vitals (
@@ -234,9 +252,43 @@ CREATE TABLE IF NOT EXISTS vitals (
     CONSTRAINT fk_vitals_adm FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE SET NULL,
     CONSTRAINT fk_vitals_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
     CONSTRAINT fk_vitals_nurse FOREIGN KEY (nurse_id) REFERENCES nurses(id) ON DELETE SET NULL
-)
+);
 
--- 14. PHARMACY INVENTORY
+-- 14. MEDICATION ADMINISTRATION
+CREATE TABLE IF NOT EXISTS medication_administration (
+   id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+   admission_id INT NOT NULL,
+   patient_id INT NOT NULL,
+   nurse_id INT NOT NULL,
+   prescription_item_id INT DEFAULT NULL,
+   drug_name VARCHAR(200) NOT NULL,
+   dosage VARCHAR(100) DEFAULT NULL,
+   scheduled_time TIMESTAMP DEFAULT NULL,
+   administered_at TIMESTAMP DEFAULT NULL,
+   status VARCHAR(15) DEFAULT 'pending',
+   notes TEXT,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   CONSTRAINT fk_ma_admission FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE CASCADE,
+   CONSTRAINT fk_ma_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+   CONSTRAINT fk_ma_nurse FOREIGN KEY (nurse_id) REFERENCES nurses(id) ON DELETE CASCADE,
+   CONSTRAINT fk_ma_item FOREIGN KEY (prescription_item_id) REFERENCES prescription_items(id) ON DELETE SET NULL
+);
+
+-- 15. NURSING NOTES
+CREATE TABLE IF NOT EXISTS nursing_notes (
+   id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+   admission_id INT NOT NULL,
+   patient_id INT NOT NULL,
+   nurse_id INT NOT NULL,
+   note TEXT NOT NULL,
+   priority VARCHAR(10) DEFAULT 'normal',
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   CONSTRAINT fk_nn_admission FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE CASCADE,
+   CONSTRAINT fk_nn_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+   CONSTRAINT fk_nn_nurse FOREIGN KEY (nurse_id) REFERENCES nurses(id) ON DELETE CASCADE
+);
+
+-- 16. PHARMACY INVENTORY
 CREATE TABLE IF NOT EXISTS pharmacy_inventory (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     drug_name VARCHAR(200) NOT NULL,
@@ -255,9 +307,26 @@ CREATE TABLE IF NOT EXISTS pharmacy_inventory (
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
--- 15. LAB TEST CATALOG
+-- 17. PHARMACY DISPENSING
+CREATE TABLE IF NOT EXISTS pharmacy_dispensing (
+    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    prescription_id INT NOT NULL,
+    prescription_item_id INT DEFAULT NULL,
+    drug_id INT DEFAULT NULL,
+    drug_name VARCHAR(200) NOT NULL,
+    quantity_dispensed INT NOT NULL,
+    pharmacist_id INT NOT NULL,
+    notes TEXT,
+    dispensed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_pd_prescription FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pd_item FOREIGN KEY (prescription_item_id) REFERENCES prescription_items(id) ON DELETE SET NULL,
+    CONSTRAINT fk_pd_drug FOREIGN KEY (drug_id) REFERENCES pharmacy_inventory(id) ON DELETE SET NULL,
+    CONSTRAINT fk_pd_pharmacist FOREIGN KEY (pharmacist_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 18. LAB TEST CATALOG
 CREATE TABLE IF NOT EXISTS lab_test_catalog (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     test_name VARCHAR(200) NOT NULL,
@@ -271,7 +340,7 @@ CREATE TABLE IF NOT EXISTS lab_test_catalog (
     instructions TEXT,
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
 -- 16. LAB ORDERS
 CREATE TABLE IF NOT EXISTS lab_orders (
@@ -290,7 +359,7 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     CONSTRAINT fk_lo_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
     CONSTRAINT fk_lo_adm FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE SET NULL,
     CONSTRAINT fk_lo_test FOREIGN KEY (test_id) REFERENCES lab_test_catalog(id) ON DELETE CASCADE
-)
+);
 
 -- 17. LAB RESULTS
 CREATE TABLE IF NOT EXISTS lab_results (
@@ -309,7 +378,7 @@ CREATE TABLE IF NOT EXISTS lab_results (
     CONSTRAINT fk_lr_order FOREIGN KEY (lab_order_id) REFERENCES lab_orders(id) ON DELETE CASCADE,
     CONSTRAINT fk_lr_tech FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_lr_ver FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL
-)
+);
 
 -- 18. BILLING
 CREATE TABLE IF NOT EXISTS billing (
@@ -334,9 +403,23 @@ CREATE TABLE IF NOT EXISTS billing (
     CONSTRAINT fk_bill_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
     CONSTRAINT fk_bill_adm FOREIGN KEY (admission_id) REFERENCES admissions(id) ON DELETE SET NULL,
     CONSTRAINT fk_bill_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-)
+);
 
--- 19. AUDIT LOGS
+-- 19. BILLING ITEMS
+CREATE TABLE IF NOT EXISTS billing_items (
+   id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+   bill_id INT NOT NULL,
+   item_type VARCHAR(20) NOT NULL,
+   description VARCHAR(255) NOT NULL,
+   quantity INT DEFAULT 1,
+   unit_price DECIMAL(10,2) DEFAULT 0.00,
+   total_price DECIMAL(10,2) DEFAULT 0.00,
+   reference_id INT DEFAULT NULL,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   CONSTRAINT fk_bi_bill FOREIGN KEY (bill_id) REFERENCES billing(id) ON DELETE CASCADE
+);
+
+-- 20. AUDIT LOGS
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     user_id INT DEFAULT NULL,
@@ -351,9 +434,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-)
+);
 
--- 20. NOTIFICATIONS
+-- 21. NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
@@ -364,9 +447,9 @@ CREATE TABLE IF NOT EXISTS notifications (
     is_read SMALLINT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+);
 
--- 21. SERVICE PRICING
+-- 22. SERVICE PRICING
 CREATE TABLE IF NOT EXISTS service_pricing (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     service_name VARCHAR(200) NOT NULL,
@@ -375,9 +458,9 @@ CREATE TABLE IF NOT EXISTS service_pricing (
     description TEXT,
     status VARCHAR(10) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
--- 22. PAYMENT METHODS
+-- 23. PAYMENT METHODS
 CREATE TABLE IF NOT EXISTS payment_methods (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -387,9 +470,19 @@ CREATE TABLE IF NOT EXISTS payment_methods (
     instructions TEXT,
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
--- 23. REFRESH TOKENS (JWT Decoupled Authentication)
+-- 24. PASSWORD RESETS
+CREATE TABLE IF NOT EXISTS password_resets (
+   id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+   user_id INT NOT NULL,
+   token VARCHAR(64) UNIQUE NOT NULL,
+   expires_at TIMESTAMP NOT NULL,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   CONSTRAINT fk_pr_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 25. REFRESH TOKENS (JWT Decoupled Authentication)
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
@@ -400,7 +493,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     ip_address VARCHAR(45) DEFAULT NULL,
     user_agent TEXT,
     CONSTRAINT fk_rt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+);
 
 -- 24. PERFORMANCE INDEXES
 CREATE INDEX idx_appointments_date_status ON appointments (appointment_date, status);
@@ -418,5 +511,15 @@ CREATE INDEX idx_patients_created ON patients (created_at);
 CREATE INDEX idx_password_resets_token_exp ON password_resets (token, expires_at);
 CREATE INDEX idx_pharmacy_inv_name_status ON pharmacy_inventory (drug_name, status);
 CREATE INDEX idx_refresh_tokens_hash_exp ON refresh_tokens (token_hash, expires_at, revoked);
-
-
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_departments_status_name ON departments(status, name);
+CREATE INDEX idx_medical_records_patient_created ON medical_records(patient_id, created_at DESC);
+CREATE INDEX idx_prescription_items_prescription ON prescription_items(prescription_id);
+CREATE INDEX idx_vitals_patient_recorded ON vitals(patient_id, recorded_at DESC);
+CREATE INDEX idx_lab_orders_status_ordered ON lab_orders(status, ordered_at);
+CREATE INDEX idx_lab_results_order ON lab_results(lab_order_id);
+CREATE INDEX idx_billing_items_bill ON billing_items(bill_id);
+CREATE INDEX idx_billing_patient_status_id ON billing(patient_id, payment_status, id);
+CREATE INDEX idx_pharmacy_inv_status_stock ON pharmacy_inventory(status, stock_quantity, reorder_level);
+CREATE INDEX idx_lab_catalog_status_category_name ON lab_test_catalog(status, category, test_name);
+CREATE INDEX idx_service_pricing_status_category_name ON service_pricing(status, category, service_name);

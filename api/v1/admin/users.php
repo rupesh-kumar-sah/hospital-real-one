@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         jsonSuccess($users, 'Users list retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch users: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch users', $e);
     }
 }
 
@@ -59,6 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($fullName) || empty($username) || empty($email) || empty($password)) {
         jsonError('Full name, username, email, and password are required.', 422);
     }
+    if (!array_key_exists($role, ROLE_LABELS)) {
+        jsonError('Invalid user role.', 422);
+    }
+    if (!in_array($status, ['active', 'inactive'], true)) {
+        jsonError('Invalid user status.', 422);
+    }
+    if (($passwordError = passwordStrengthError($password)) !== null) {
+        jsonError($passwordError, 422);
+    }
     
     try {
         $check = $db->prepare("SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
@@ -70,8 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         
         $stmt = $db->prepare("
-            INSERT INTO users (username, email, password_hash, full_name, phone, role, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO users (username, email, password_hash, full_name, phone, role, status, must_change_password, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP)
         ");
         $stmt->execute([$username, $email, $passwordHash, $fullName, $phone, $role, $status]);
         $newUserId = (int)$db->lastInsertId();
@@ -88,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         jsonSuccess(['id' => $newUserId, 'username' => $username, 'role' => $role], 'User created successfully', 201);
     } catch (\Throwable $e) {
-        jsonError('Failed to create user: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to create user', $e);
     }
 }
 

@@ -32,13 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $whereSql = "WHERE " . implode(" AND ", $where);
     
     try {
-        $stmt = $db->prepare("SELECT * FROM pharmacy_inventory {$whereSql} ORDER BY drug_name ASC");
+        $stmt = $db->prepare("SELECT * FROM pharmacy_inventory {$whereSql} ORDER BY drug_name ASC LIMIT 100");
         $stmt->execute($params);
         $drugs = $stmt->fetchAll();
         
         jsonSuccess($drugs, 'Inventory retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch inventory: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch inventory', $e);
     }
 }
 
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'drug_name' => $drugName
         ], 'Medicine added to inventory', 201);
     } catch (\Throwable $e) {
-        jsonError('Failed to add medicine: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to add medicine', $e);
     }
 }
 

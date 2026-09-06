@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: EMR Consultation Workspace
  */
@@ -34,11 +36,11 @@ if ($apptId) {
 
 // Handle Form Submission (Save Medical Record + Prescription)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $pId = (int)$_POST['patient_id'];
+    $pId = (int)($_POST['patient_id'] ?? 0);
     $aId = (int)($_POST['appointment_id'] ?? 0);
-    $diagnosis = trim($_POST['diagnosis']);
-    $symptoms = trim($_POST['symptoms']);
-    $notes = trim($_POST['clinical_notes']);
+    $diagnosis = trim((string)($_POST['diagnosis'] ?? ''));
+    $symptoms = trim((string)($_POST['symptoms'] ?? ''));
+    $notes = trim((string)($_POST['clinical_notes'] ?? ''));
 
     if ($pId && $diagnosis) {
         $db->beginTransaction();

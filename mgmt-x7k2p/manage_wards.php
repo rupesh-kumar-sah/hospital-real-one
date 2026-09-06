@@ -1,4 +1,9 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+require_once __DIR__ . '/../config/constants.php';
+if (str_contains((string)($_SERVER['SCRIPT_FILENAME'] ?? ''), DIRECTORY_SEPARATOR . ADMIN_PATH . DIRECTORY_SEPARATOR)) {
+    checkIPAllowlist('admin');
+}
 /**
  * Hospital Management System — Admin: Wards & Beds Management
  */
@@ -7,7 +12,7 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole(['admin', 'nurse']);
 
 $pageTitle = 'Wards & Bed Management';
-$dashUrl = getUserRole() === 'nurse' ? '/nurse/dashboard.php' : '/admin/dashboard.php';
+$dashUrl = getUserRole() === 'nurse' ? '/nurse/dashboard.php' : adminUrl('dashboard.php');
 $breadcrumbs = [['label' => 'Dashboard', 'url' => $dashUrl], ['label' => 'Wards & Beds']];
 
 $db = getDB();
@@ -15,9 +20,9 @@ $db = getDB();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'add_bed') {
-        $wardId = (int)$_POST['ward_id'];
-        $bedNumber = trim($_POST['bed_number']);
-        $charge = (float)$_POST['daily_charge'];
+        $wardId = (int)($_POST['ward_id'] ?? 0);
+        $bedNumber = trim((string)($_POST['bed_number'] ?? ''));
+        $charge = (float)($_POST['daily_charge'] ?? 0);
         if ($wardId && $bedNumber) {
             $stmt = $db->prepare("INSERT INTO beds (ward_id, bed_number, status, daily_charge) VALUES (?, ?, 'available', ?)");
             $stmt->execute([$wardId, $bedNumber, $charge]);
@@ -26,15 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } elseif ($action === 'update_bed_status') {
-        $bedId = (int)$_POST['bed_id'];
-        $status = $_POST['status'];
+        $bedId = (int)($_POST['bed_id'] ?? 0);
+        $status = $_POST['status'] ?? '';
         $stmt = $db->prepare("UPDATE beds SET status = ? WHERE id = ?");
         $stmt->execute([$status, $bedId]);
         setFlash('success', "Bed status updated to {$status}.");
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($action === 'delete_bed') {
-        $bedId = (int)$_POST['bed_id'];
+        $bedId = (int)($_POST['bed_id'] ?? 0);
         $stmt = $db->prepare("DELETE FROM beds WHERE id = ?");
         $stmt->execute([$bedId]);
         logAudit('delete', 'beds', $bedId, "Deleted bed #{$bedId}");

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('admin');
 /**
  * Hospital Management System — Admin: Manage Users
  */
@@ -7,7 +9,7 @@ require_once __DIR__ . '/../includes/auth_middleware.php';
 requireRole('admin');
 
 $pageTitle = 'Manage Users';
-$breadcrumbs = [['label' => 'Dashboard', 'url' => '/admin/dashboard.php'], ['label' => 'Manage Users']];
+$breadcrumbs = [['label' => 'Dashboard', 'url' => adminUrl('dashboard.php')], ['label' => 'Manage Users']];
 
 $db = getDB();
 $error = '';
@@ -15,6 +17,7 @@ $success = '';
 
 // Handle Create / Toggle / Delete User
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCSRF();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'create_user') {
@@ -23,9 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fullName = trim($_POST['full_name'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         $role = $_POST['role'] ?? '';
-        $password = $_POST['password'] ?? '';
+        // Ignore submitted passwords; new accounts receive a one-time random password.
+        $temporaryPassword = generateTemporaryPassword();
         
-        if (empty($username) || empty($email) || empty($fullName) || empty($role) || empty($password)) {
+        if (empty($username) || empty($email) || empty($fullName) || empty($role)) {
             setFlash('error', 'Please fill in all required fields.');
         } else {
             // Check existing
@@ -34,11 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetch()) {
                 setFlash('error', 'Username or Email already exists.');
             } else {
-                $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
+                $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, phone, role, status, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 'active', TRUE)");
                 $stmt->execute([
                     $username,
                     $email,
-                    password_hash($password, PASSWORD_DEFAULT),
+                    password_hash($temporaryPassword, PASSWORD_DEFAULT),
                     $fullName,
                     $phone,
                     $role
@@ -62,19 +66,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 logAudit('create', 'users', $newUserId, "Created user {$username} with role {$role}");
-                setFlash('success', "User {$fullName} created successfully.");
-                header('Location: /admin/manage_users.php');
+                $_SESSION['temporary_password_notice'] = [
+                    'username' => $username,
+                    'password' => $temporaryPassword
+                ];
+                setFlash('success', "User {$fullName} created successfully. The temporary password is shown once below.");
+                header('Location: ' . adminUrl('manage_users.php'));
                 exit;
             }
         }
     } elseif ($action === 'toggle_status') {
         $userId = (int)($_POST['user_id'] ?? 0);
-        $newStatus = $_POST['status'] === 'active' ? 'inactive' : 'active';
+        $newStatus = ($_POST['status'] ?? '') === 'active' ? 'inactive' : 'active';
         $stmt = $db->prepare("UPDATE users SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $userId]);
         logAudit('update', 'users', $userId, "Changed status of user #{$userId} to {$newStatus}");
         setFlash('success', "User status updated to {$newStatus}.");
-        header('Location: /admin/manage_users.php');
+        header('Location: ' . adminUrl('manage_users.php'));
         exit;
     } elseif ($action === 'delete_user') {
         $userId = (int)($_POST['user_id'] ?? 0);
@@ -91,10 +99,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('success', "User deleted successfully.");
             } catch (Exception $e) {
                 $db->rollBack();
-                setFlash('error', "Could not delete user: " . $e->getMessage());
+                error_log('User deletion failed: ' . $e->getMessage());
+                setFlash('error', 'Could not delete user. Please try again.');
             }
         }
-        header('Location: /admin/manage_users.php');
+        header('Location: ' . adminUrl('manage_users.php'));
         exit;
     }
 }
@@ -122,6 +131,8 @@ $pagination = paginate($query, $params, $page, 15);
 $users = $pagination['data'];
 
 $departments = $db->query("SELECT * FROM departments WHERE status = 'active'")->fetchAll();
+$temporaryPasswordNotice = $_SESSION['temporary_password_notice'] ?? null;
+unset($_SESSION['temporary_password_notice']);
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -131,10 +142,20 @@ include __DIR__ . '/../includes/header.php';
         <h1>User Management</h1>
         <p class="page-subtitle">View, add, activate, deactivate, or delete system user accounts</p>
     </div>
+
     <button class="btn btn-primary" onclick="openModal('addUserModal')">
         <i class="fas fa-user-plus"></i> Add New User
     </button>
 </div>
+
+<?php if ($temporaryPasswordNotice): ?>
+<div class="alert alert-warning" style="margin-bottom: 24px;">
+    <i class="fas fa-key"></i>
+    <strong>Temporary password for <?= sanitize($temporaryPasswordNotice['username']) ?> (shown once):</strong>
+    <code style="user-select: all;"><?= sanitize($temporaryPasswordNotice['password']) ?></code>
+    <div class="text-xs" style="margin-top: 6px;">Share it through a secure channel. The user must change it at first sign-in.</div>
+</div>
+<?php endif; ?>
 
 <!-- Filters -->
 <div class="card mb-24">
@@ -154,7 +175,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <button type="submit" class="btn btn-secondary"><i class="fas fa-filter"></i> Filter</button>
             <?php if ($search || $roleFilter): ?>
-            <a href="/admin/manage_users.php" class="btn btn-outline">Reset</a>
+            <a href="<?= adminUrl('manage_users.php') ?>" class="btn btn-outline">Reset</a>
             <?php endif; ?>
         </form>
     </div>
@@ -218,6 +239,7 @@ include __DIR__ . '/../includes/header.php';
                         <div class="btn-group">
                             <!-- Toggle Activate / Deactivate -->
                             <form method="POST" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                                 <input type="hidden" name="action" value="toggle_status">
                                 <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
                                 <input type="hidden" name="status" value="<?= $u['status'] ?>">
@@ -230,6 +252,7 @@ include __DIR__ . '/../includes/header.php';
                             <!-- Delete User -->
                             <?php if ($u['id'] !== getUserId()): ?>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently DELETE user <?= sanitize($u['full_name']) ?>? This action cannot be undone.');">
+                                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                                 <input type="hidden" name="action" value="delete_user">
                                 <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-danger" data-tooltip="Permanently Delete User">
@@ -246,7 +269,7 @@ include __DIR__ . '/../includes/header.php';
         </table>
     </div>
     <div class="card-footer">
-        <?= renderPagination($pagination, '/admin/manage_users.php') ?>
+        <?= renderPagination($pagination, adminUrl('dashboard.php')) ?>
     </div>
 </div>
 
@@ -259,6 +282,7 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <form method="POST" action="">
             <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                 <input type="hidden" name="action" value="create_user">
                 
                 <div class="form-row">
@@ -294,8 +318,8 @@ include __DIR__ . '/../includes/header.php';
                         <input type="tel" name="phone" class="form-control" placeholder="98XXXXXXXX">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Password <span class="required">*</span></label>
-                        <input type="password" name="password" class="form-control" required placeholder="••••••••">
+                        <label class="form-label">Password</label>
+                        <input type="text" class="form-control" value="Generated securely after creation" readonly>
                     </div>
                 </div>
 

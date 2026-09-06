@@ -50,5 +50,5 @@ try {
     ], 'Lab dashboard retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch lab dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch lab dashboard', $e);
 }

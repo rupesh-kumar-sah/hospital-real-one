@@ -28,5 +28,5 @@ try {
     
     jsonSuccess(['order_id' => $orderId, 'status' => 'sample_collected'], 'Sample collection recorded');
 } catch (\Throwable $e) {
-    jsonError('Failed to record sample collection: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to record sample collection', $e);
 }

@@ -103,6 +103,21 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 8px;
+    z-index: 2001;
+    padding: 8px 12px;
+    color: #ffffff;
+    background: var(--gray-900);
+    border-radius: var(--border-radius-xs);
+}
+
+.skip-link:focus {
+    left: 8px;
+}
+
 a {
     color: var(--primary);
     text-decoration: none;

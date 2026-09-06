@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: IPD Patient Admission Request
  */
@@ -14,9 +16,9 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $patientId = (int)$_POST['patient_id'];
-    $bedId = (int)$_POST['bed_id'];
-    $reason = trim($_POST['reason']);
+    $patientId = (int)($_POST['patient_id'] ?? 0);
+    $bedId = (int)($_POST['bed_id'] ?? 0);
+    $reason = trim((string)($_POST['reason'] ?? ''));
 
     if ($patientId && $bedId) {
         $stmtBed = $db->prepare("SELECT ward_id FROM beds WHERE id = ?");

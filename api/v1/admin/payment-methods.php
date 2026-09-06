@@ -12,11 +12,11 @@ $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        $stmt = $db->query("SELECT id, name, account_name, account_number, qr_image, instructions, status FROM payment_methods ORDER BY id ASC");
+        $stmt = $db->query("SELECT id, name, account_name, account_number, qr_image, instructions, status FROM payment_methods ORDER BY id ASC LIMIT 100");
         $methods = $stmt->fetchAll();
         jsonSuccess($methods, 'Payment methods retrieved');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch payment methods: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch payment methods', $e);
     }
 }
 
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         jsonSuccess(['id' => (int)$db->lastInsertId(), 'name' => $name], 'Payment method saved', 201);
     } catch (\Throwable $e) {
-        jsonError('Failed to save payment method: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to save payment method', $e);
     }
 }
 

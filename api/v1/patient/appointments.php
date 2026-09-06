@@ -34,13 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN departments dep ON a.department_id = dep.id
             WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC, a.appointment_time DESC
+            LIMIT 100
         ");
         $stmt->execute([$patientId]);
         $appointments = $stmt->fetchAll();
         
         jsonSuccess($appointments, 'Appointments fetched');
     } catch (\Throwable $e) {
-        jsonError('Failed to fetch appointments: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to fetch appointments', $e);
     }
 }
 
@@ -85,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Notify Receptionists and Patient
         try {
-            $notifPatient = $db->prepare("INSERT INTO notifications (user_id, title, message, type, is_read, created_at) VALUES (?, 'Appointment Request Received', 'Your appointment request for " . $date . " is pending confirmation.', 'appointment', 0, CURRENT_TIMESTAMP)");
-            $notifPatient->execute([$userId]);
+            $notifPatient = $db->prepare("INSERT INTO notifications (user_id, title, message, type, is_read, created_at) VALUES (?, 'Appointment Request Received', ?, 'appointment', 0, CURRENT_TIMESTAMP)");
+            $notifPatient->execute([$userId, 'Your appointment request for ' . $date . ' is pending confirmation.']);
         } catch (\Throwable $e) {}
         
         jsonSuccess([
@@ -97,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ], 'Appointment booked successfully. Awaiting receptionist approval.', 201);
         
     } catch (\Throwable $e) {
-        jsonError('Failed to book appointment: ' . $e->getMessage(), 500);
+        jsonServerError('Failed to book appointment', $e);
     }
 }
 

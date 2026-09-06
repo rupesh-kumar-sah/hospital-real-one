@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Nurse: Vitals Recording
  */
@@ -14,13 +16,13 @@ $nurse = getNurseByUserId(getUserId());
 $nurseId = $nurse['id'] ?? 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $patientId = (int)$_POST['patient_id'];
+    $patientId = (int)($_POST['patient_id'] ?? 0);
     $admissionId = (int)($_POST['admission_id'] ?? 0);
-    $sys = (int)$_POST['bp_systolic'];
-    $dia = (int)$_POST['bp_diastolic'];
-    $temp = (float)$_POST['temperature'];
-    $pulse = (int)$_POST['pulse'];
-    $spo2 = (float)$_POST['spo2'];
+    $sys = (int)($_POST['bp_systolic'] ?? 0);
+    $dia = (int)($_POST['bp_diastolic'] ?? 0);
+    $temp = (float)($_POST['temperature'] ?? 0);
+    $pulse = (int)($_POST['pulse'] ?? 0);
+    $spo2 = (float)($_POST['spo2'] ?? 0);
 
     if ($patientId && $temp) {
         $stmt = $db->prepare("INSERT INTO vitals (patient_id, admission_id, nurse_id, blood_pressure_systolic, blood_pressure_diastolic, temperature, pulse, oxygen_saturation, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");

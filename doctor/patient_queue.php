@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Doctor: OPD Queue
  */
@@ -14,15 +16,18 @@ $doctor = getDoctorByUserId(getUserId());
 $doctorId = $doctor['id'] ?? 0;
 
 $todayDate = date('Y-m-d');
-$whereDoc = $doctorId > 0 ? "a.doctor_id = {$doctorId} AND" : "";
-$queue = $db->query("
+$whereDoc = $doctorId > 0 ? "a.doctor_id = ? AND" : "";
+$queueParams = $doctorId > 0 ? [(int)$doctorId, $todayDate] : [$todayDate];
+$stmtQueue = $db->prepare("
     SELECT a.*, p.uhid, u_p.full_name as patient_name, p.date_of_birth, p.gender, p.blood_group, p.allergies
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN users u_p ON p.user_id = u_p.id
-    WHERE {$whereDoc} (a.appointment_date = '{$todayDate}' OR a.appointment_date = DATE('now', 'localtime'))
+    WHERE {$whereDoc} (a.appointment_date = ? OR a.appointment_date = DATE('now', 'localtime'))
     ORDER BY a.token_number ASC
-")->fetchAll();
+");
+$stmtQueue->execute($queueParams);
+$queue = $stmtQueue->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
 ?>

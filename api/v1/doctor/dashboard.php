@@ -32,6 +32,7 @@ try {
         JOIN users u ON p.user_id = u.id
         WHERE a.doctor_id = ? AND a.appointment_date = ? AND a.status IN ('scheduled', 'checked_in', 'in_progress')
         ORDER BY a.token_number ASC
+        LIMIT 100
     ");
     $stmtQueue->execute([$doctorId, $todayDate]);
     $queue = $stmtQueue->fetchAll();
@@ -63,5 +64,5 @@ try {
     ], 'Doctor dashboard retrieved');
     
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch doctor dashboard: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch doctor dashboard', $e);
 }

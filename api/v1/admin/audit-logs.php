@@ -33,5 +33,5 @@ try {
     
     jsonSuccess($logs, 'Audit logs retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch audit logs: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch audit logs', $e);
 }

@@ -3,11 +3,11 @@ FROM php:8.4-apache
 
 # Install PHP extensions
 RUN apt-get update && apt-get install -y \
-    libsqlite3-dev \
+    libsqlite3-dev libpq-dev \
     libonig-dev \
     libssl-dev \
     zip unzip curl \
-    && docker-php-ext-install pdo pdo_mysql pdo_sqlite mbstring \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql pdo_sqlite mbstring \
     && a2enmod rewrite headers \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

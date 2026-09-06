@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonError('Method Not Allowed. POST required.', 405);
 }
 
+requireApiCookieOrigin();
+
 // Retrieve refresh token from Cookie or Request Body fallback
 $refreshToken = $_COOKIE['hms_refresh_token'] ?? '';
 if (empty($refreshToken)) {
@@ -26,6 +28,11 @@ try {
     if (!$userData) {
         clearRefreshTokenCookie();
         jsonError('Invalid, revoked, or expired refresh token. Please log in again.', 401);
+    }
+    if (!empty($userData['must_change_password'])) {
+        revokeRefreshToken($refreshToken);
+        clearRefreshTokenCookie();
+        jsonError('Password change required before API access.', 403, ['password_change_required' => true]);
     }
     
     // Revoke old refresh token (Token Rotation Security)
@@ -61,5 +68,5 @@ try {
     ], 'Token refreshed successfully');
     
 } catch (\Throwable $e) {
-    jsonError('Server error during token refresh: ' . $e->getMessage(), 500);
+    jsonServerError('Server error during token refresh', $e);
 }

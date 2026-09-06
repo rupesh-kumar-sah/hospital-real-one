@@ -17,6 +17,8 @@ try {
         FROM pharmacy_inventory
         WHERE stock_quantity <= reorder_level AND status = 'active'
         ORDER BY stock_quantity ASC
+        LIMIT 100
+        LIMIT 100
     ");
     $lowStock = $stmtLow->fetchAll();
     
@@ -26,6 +28,8 @@ try {
         FROM pharmacy_inventory
         WHERE expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURRENT_DATE, INTERVAL 60 DAY) AND status = 'active'
         ORDER BY expiry_date ASC
+        LIMIT 100
+        LIMIT 100
     ");
     $nearExpiry = $stmtExp->fetchAll();
     
@@ -34,5 +38,5 @@ try {
         'near_expiry' => $nearExpiry
     ], 'Stock alerts retrieved');
 } catch (\Throwable $e) {
-    jsonError('Failed to fetch stock alerts: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to fetch stock alerts', $e);
 }

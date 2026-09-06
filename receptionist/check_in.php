@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/ip_allowlist.php';
+checkIPAllowlist('staff');
 /**
  * Hospital Management System — Receptionist: Patient Check-In & Token
  */
@@ -14,13 +16,15 @@ $db = getDB();
 if (isset($_GET['id'])) {
     $apptId = (int)$_GET['id'];
     
-    $appt = $db->query("
+    $stmtAppt = $db->prepare("
         SELECT a.*, d.consultation_fee, u_d.full_name as doctor_name
         FROM appointments a
         JOIN doctors d ON a.doctor_id = d.id
         JOIN users u_d ON d.user_id = u_d.id
-        WHERE a.id = {$apptId}
-    ")->fetch();
+        WHERE a.id = ?
+    ");
+    $stmtAppt->execute([$apptId]);
+    $appt = $stmtAppt->fetch();
 
     if ($appt) {
         $stmt = $db->prepare("UPDATE appointments SET status = 'checked_in' WHERE id = ?");

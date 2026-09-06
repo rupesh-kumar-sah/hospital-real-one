@@ -10,6 +10,10 @@ data/*.sqlite
 *.db
 *.sqlite
 
+# Encrypted database backups and backup manifests
+*.mchms
+*.mchms.sha256
+
 # Uploaded files (user content, not source code)
 uploads/*
 !uploads/.gitkeep

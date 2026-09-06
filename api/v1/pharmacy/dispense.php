@@ -47,14 +47,32 @@ try {
     $stmtItems->execute([$prescriptionId]);
     $items = $stmtItems->fetchAll();
     
-    $invStmt = $db->prepare("SELECT * FROM pharmacy_inventory WHERE drug_name LIKE ? AND status = 'active' LIMIT 1");
+    // Resolve all prescribed medicines with one inventory lookup instead of one
+    // query per item. Matching remains equivalent to the previous LIKE lookup.
+    $inventory = [];
+    if ($items) {
+        $inventoryWhere = implode(' OR ', array_fill(0, count($items), 'drug_name LIKE ?'));
+        $inventoryStmt = $db->prepare(
+            "SELECT * FROM pharmacy_inventory WHERE status = 'active' AND ({$inventoryWhere}) ORDER BY id"
+        );
+        $inventoryStmt->execute(array_map(
+            static fn(array $item): string => '%' . $item['drug_name'] . '%',
+            $items
+        ));
+        $inventory = $inventoryStmt->fetchAll();
+    }
     $stockDeduct = $db->prepare("UPDATE pharmacy_inventory SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?");
     
     $totalMedCost = 0;
     
     foreach ($items as $it) {
-        $invStmt->execute(['%' . $it['drug_name'] . '%']);
-        $inv = $invStmt->fetch();
+        $inv = null;
+        foreach ($inventory as $candidate) {
+            if (stripos($candidate['drug_name'], $it['drug_name']) !== false) {
+                $inv = $candidate;
+                break;
+            }
+        }
         
         $qty = max(1, (int)($it['quantity'] ?? 10));
         $unitPrice = $inv ? (float)$inv['selling_price'] : 10.00;
@@ -111,5 +129,5 @@ try {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
-    jsonError('Failed to dispense prescription: ' . $e->getMessage(), 500);
+    jsonServerError('Failed to dispense prescription', $e);
 }

@@ -60,32 +60,56 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
 // 3. BRUTE-FORCE LOGIN RATE LIMITING
 // =====================================================
 function checkRateLimit(string $actionKey = 'login', int $maxAttempts = 5, int $decaySeconds = 900): bool {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    $key = 'rate_' . $actionKey . '_' . md5($ip);
-    
-    if (!isset($_SESSION[$key])) {
-        $_SESSION[$key] = ['attempts' => 1, 'first_attempt' => time()];
-        return true;
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+    $key = hash('sha256', $actionKey . '|' . $ip);
+    $directory = getenv('RATE_LIMIT_DIRECTORY') ?: __DIR__ . '/../data/rate_limits';
+
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        // Do not silently disable brute-force protection if storage is unavailable.
+        return false;
     }
-    
-    $data = $_SESSION[$key];
-    
-    // Reset if decay window passed
-    if ((time() - $data['first_attempt']) > $decaySeconds) {
-        $_SESSION[$key] = ['attempts' => 1, 'first_attempt' => time()];
-        return true;
+
+    $handle = fopen($directory . DIRECTORY_SEPARATOR . $key . '.json', 'c+');
+    if ($handle === false || !flock($handle, LOCK_EX)) {
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
+        return false;
     }
-    
-    if ($data['attempts'] >= $maxAttempts) {
-        return false; // Rate limit exceeded
+
+    $contents = stream_get_contents($handle);
+    $data = is_string($contents) ? json_decode($contents, true) : null;
+    $now = time();
+    if (
+        !is_array($data)
+        || !isset($data['attempts'], $data['first_attempt'])
+        || ($now - (int)$data['first_attempt']) > $decaySeconds
+    ) {
+        $data = ['attempts' => 0, 'first_attempt' => $now];
     }
-    
-    $_SESSION[$key]['attempts']++;
+
+    if ((int)$data['attempts'] >= $maxAttempts) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        return false;
+    }
+
+    $data['attempts']++;
+    ftruncate($handle, 0);
+    rewind($handle);
+    fwrite($handle, json_encode($data, JSON_THROW_ON_ERROR));
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
     return true;
 }
 
 function resetRateLimit(string $actionKey = 'login'): void {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    $key = 'rate_' . $actionKey . '_' . md5($ip);
-    unset($_SESSION[$key]);
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+    $key = hash('sha256', $actionKey . '|' . $ip);
+    $directory = getenv('RATE_LIMIT_DIRECTORY') ?: __DIR__ . '/../data/rate_limits';
+    $path = $directory . DIRECTORY_SEPARATOR . $key . '.json';
+    if (is_file($path)) {
+        @unlink($path);
+    }
 }
