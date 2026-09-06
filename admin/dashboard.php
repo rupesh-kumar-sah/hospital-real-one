@@ -32,7 +32,7 @@ $totalPatients = (int)($stmtTotPts['c'] ?? 0);
 
 $stmtNewPts = $db->prepare("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at) = ?");
 $stmtNewPts->execute([$todayDate]);
-$newPatientsToday = (int)($stmtNewPts['c'] ?? 0);
+$newPatientsToday = (int)($stmtNewPts->fetch()['c'] ?? 0);
 
 // Active admissions
 $stmtAdmissions = $db->query("SELECT COUNT(*) as c FROM admissions WHERE status = 'admitted'")->fetch();
