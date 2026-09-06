@@ -2,9 +2,9 @@
  * MediCare HMS — Frontend Dynamic Backend Config & Auto-Refresh Sync
  */
 window.HMS_CONFIG = {
-    // Render Backend API URL (Replace with your actual Render URL when deployed)
+    // Free Render backend API URL.
     RENDER_BACKEND_URL: window.location.hostname.includes('vercel.app')
-        ? 'https://medicare-hms-backend.onrender.com'
+        ? 'https://medicare-hms-free.onrender.com'
         : window.location.origin,
     
     // Auto-refresh interval in milliseconds (3 seconds for fast live updates)
