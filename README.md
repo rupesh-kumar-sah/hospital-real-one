@@ -24,6 +24,8 @@ This repository is configured for a split deployment:
 The PostgreSQL database is provisioned by Render and is not publicly exposed because
 the Blueprint sets an empty inbound IP allow list. Use the private database
 connection values injected by Render; do not copy them into GitHub.
+The current Render API requires billing to be enabled before a managed PostgreSQL
+instance can be created.
 
 ### Deploy the frontend
 

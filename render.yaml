@@ -1,8 +1,6 @@
 databases:
   - name: medicare-hms-postgres
-    type: postgres
-    version: 16
-    plan: starter
+    plan: basic_256mb
     region: singapore
     databaseName: medicare_hms
     user: hms_user
@@ -12,7 +10,7 @@ services:
   - type: web
     name: medicare-hms-backend
     env: docker
-    plan: starter
+    plan: free
     region: singapore
     dockerfilePath: Dockerfile
     autoDeploy: true

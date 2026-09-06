@@ -5,9 +5,7 @@
 
 -- =====================================================
 -- MAIN ADMIN ACCOUNT
--- Username & Email: sahkkr702@gmail.com
--- Password: kumar@9090
--- Hash: $2y$12$MF.oHNRTM1i9.o02PTIzq.eLGzvKAwvUv3nAKe9Ini8ILQrGsPD2W
+-- The seeded administrator password must be rotated immediately after deployment.
 -- =====================================================
 INSERT INTO users (username, email, password_hash, full_name, phone, role, status)
 VALUES ('sahkkr702@gmail.com', 'sahkkr702@gmail.com', '$2y$12$MF.oHNRTM1i9.o02PTIzq.eLGzvKAwvUv3nAKe9Ini8ILQrGsPD2W', 'System Administrator', '9800000000', 'admin', 'active');
