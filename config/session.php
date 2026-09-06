@@ -31,6 +31,15 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
         'samesite' => 'Lax'
     ]);
     
+    // DB-backed sessions for serverless / multi-instance deployments
+    // (SESSION_DRIVER=db); default remains PHP file sessions for local dev.
+    if (getenv('SESSION_DRIVER') === 'db') {
+        require_once __DIR__ . '/database.php';
+        require_once __DIR__ . '/session_db.php';
+        session_set_save_handler(new DbSessionHandler(), true);
+    }
+
+    session_start();
     session_start();
 }
 

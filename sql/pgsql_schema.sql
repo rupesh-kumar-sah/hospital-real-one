@@ -523,3 +523,11 @@ CREATE INDEX idx_billing_patient_status_id ON billing(patient_id, payment_status
 CREATE INDEX idx_pharmacy_inv_status_stock ON pharmacy_inventory(status, stock_quantity, reorder_level);
 CREATE INDEX idx_lab_catalog_status_category_name ON lab_test_catalog(status, category, test_name);
 CREATE INDEX idx_service_pricing_status_category_name ON service_pricing(status, category, service_name);
+
+-- DB-backed sessions (SESSION_DRIVER=db) for serverless/multi-instance deploys
+CREATE TABLE IF NOT EXISTS app_sessions (
+    id VARCHAR(128) PRIMARY KEY,
+    data TEXT NOT NULL,
+    last_accessed BIGINT NOT NULL
+);
+CREATE INDEX idx_app_sessions_last_accessed ON app_sessions(last_accessed);

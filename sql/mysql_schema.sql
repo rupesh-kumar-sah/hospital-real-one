@@ -456,3 +456,11 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Audit log hot-path indexes (admin audit page: ORDER BY created_at DESC, filter by action)
 CREATE INDEX idx_audit_logs_created ON audit_logs (created_at);
 CREATE INDEX idx_audit_logs_action_created ON audit_logs (action, created_at);
+
+-- DB-backed sessions (SESSION_DRIVER=db) for serverless/multi-instance deploys
+CREATE TABLE IF NOT EXISTS app_sessions (
+    id VARCHAR(128) PRIMARY KEY,
+    data MEDIUMTEXT NOT NULL,
+    last_accessed INT UNSIGNED NOT NULL,
+    KEY idx_app_sessions_last_accessed (last_accessed)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -604,3 +604,11 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash_exp ON refresh_tokens(token_h
 -- Audit log hot-path indexes (admin audit page: ORDER BY created_at DESC, filter by action)
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
+
+-- DB-backed sessions (SESSION_DRIVER=db) for serverless/multi-instance deploys
+CREATE TABLE IF NOT EXISTS app_sessions (
+    id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    last_accessed INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_app_sessions_last_accessed ON app_sessions(last_accessed);
